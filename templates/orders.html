@@ -6,8 +6,12 @@
 <div class="page-header">
     <div>
         <div class="page-title">Заявки</div>
-        <div class="page-subtitle">Всего в системе: {{ counts.values() | sum }}</div>
+        <div class="page-subtitle">Всего: {{ counts.values() | sum }}</div>
     </div>
+    <a href="/orders/export{% if request.query_params %}?{{ request.query_string.decode() }}{% endif %}"
+       class="btn btn-outline btn-sm">
+        <i class="bi bi-file-earmark-excel"></i>Экспорт Excel
+    </a>
 </div>
 
 <!-- Stats -->
@@ -30,7 +34,60 @@
     </div>
 </div>
 
-<!-- Filters -->
+<!-- Search + Filters -->
+<div class="card" style="margin-bottom:16px">
+    <div class="card-body" style="padding:14px 20px">
+        <form method="get" action="/orders" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1;min-width:200px">
+                <label>Поиск</label>
+                <div style="position:relative">
+                    <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3)"></i>
+                    <input type="text" name="search" value="{{ search }}"
+                           placeholder="Клиент, модель, фабрика, телефон…"
+                           style="padding-left:32px">
+                </div>
+            </div>
+            {% if me.role == 'admin' %}
+            <div class="form-group" style="margin:0;flex:0 0 150px">
+                <label>Менеджер</label>
+                <select name="manager">
+                    <option value="">Все</option>
+                    {% for m in managers %}
+                    <option value="{{ m }}" {{ 'selected' if filter_manager == m else '' }}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:0 0 170px">
+                <label>Фабрика</label>
+                <select name="factory">
+                    <option value="">Все</option>
+                    {% for f in factories %}
+                    <option value="{{ f.name }}" {{ 'selected' if filter_factory == f.name else '' }}>{{ f.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="form-group" style="margin:0;flex:0 0 140px">
+                <label>Дата с</label>
+                <input type="date" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="form-group" style="margin:0;flex:0 0 140px">
+                <label>Дата по</label>
+                <input type="date" name="date_to" value="{{ date_to }}">
+            </div>
+            <div style="display:flex;gap:8px">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-funnel"></i>Применить
+                </button>
+                <a href="/orders" class="btn btn-outline btn-sm">
+                    <i class="bi bi-x"></i>Сбросить
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Status tabs -->
 <div class="filter-tabs">
     <a href="/orders" class="filter-tab {% if not current_status %}active{% endif %}">
         Все <span class="count">{{ counts.values() | sum }}</span>
@@ -56,12 +113,13 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Дата создания</th>
+                    <th>Дата</th>
                     <th>Клиент</th>
                     <th>Фабрика</th>
                     <th>Категория</th>
                     <th>Модель</th>
-                    <th>Кол-во</th>
+                    <th>Сумма</th>
+                    <th>Менеджер</th>
                     <th>Статус</th>
                     <th></th>
                 </tr>
@@ -80,7 +138,8 @@
                     <td class="text-sm">{{ o.factory_name }}</td>
                     <td class="text-sm">{{ o.category }}</td>
                     <td class="fw-600 text-sm">{{ o.model }}</td>
-                    <td class="text-sm" style="text-align:center">{{ o.quantity }}</td>
+                    <td class="text-sm">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
+                    <td class="text-sm text-muted">{{ o.manager_username or '—' }}</td>
                     <td>
                         {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
                         {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">Отправлено</span>
@@ -96,10 +155,10 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9">
+                    <td colspan="10">
                         <div class="empty">
                             <i class="bi bi-inbox"></i>
-                            <p>Заявок нет</p>
+                            <p>Заявок не найдено</p>
                         </div>
                     </td>
                 </tr>

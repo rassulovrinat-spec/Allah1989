@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% set active_page = 'dashboard' %}
+{% block title %}Дашборд{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Дашборд</div>
+        <div class="page-subtitle">Сводная аналитика по продажам</div>
+    </div>
+</div>
+
+<!-- Главные показатели -->
+<div class="stats" style="margin-bottom:20px">
+    <div class="stat-card">
+        <div class="stat-value">{{ counts.values() | sum }}</div>
+        <div class="stat-label">Всего заявок</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ counts['accepted'] }}</div>
+        <div class="stat-label">Принято фабрикой</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--p)">
+        <div class="stat-value" style="font-size:18px;color:var(--p)">{{ total_revenue | rub }}</div>
+        <div class="stat-label">Общая выручка</div>
+    </div>
+    <div class="stat-card" style="border-color:#059669">
+        <div class="stat-value" style="font-size:18px;color:#059669">
+            {{ (total_revenue * commission_rate / 100) | rub }}
+        </div>
+        <div class="stat-label">Комиссии менеджеров ({{ commission_rate }}%)</div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- График выручки -->
+    <div class="col col-8">
+        <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><i class="bi bi-graph-up"></i>Выручка за 6 месяцев</div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="80"></canvas>
+            </div>
+        </div>
+
+        <!-- Топ менеджеры -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-trophy"></i>Менеджеры — итог за всё время</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Менеджер</th>
+                            <th>Заявок</th>
+                            <th>Сумма продаж</th>
+                            <th style="color:var(--p)">Комиссия {{ commission_rate }}%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in mgr_rows %}
+                        <tr>
+                            <td class="fw-600">{{ r.username }}</td>
+                            <td class="text-sm">{{ r.orders }}</td>
+                            <td>{{ r.total | rub }}</td>
+                            <td class="fw-600" style="color:var(--p)">{{ r.commission | rub }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty"><i class="bi bi-people"></i><p>Нет данных</p></div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Правая колонка -->
+    <div class="col col-4">
+        <!-- Статусы -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-pie-chart"></i>Статусы заявок</div>
+            <div class="card-body">
+                <canvas id="statusChart" height="160"></canvas>
+                <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:#F59E0B;display:inline-block"></span>Новые
+                        </span>
+                        <strong>{{ counts['new'] }}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:#3B82F6;display:inline-block"></span>Отправлено
+                        </span>
+                        <strong>{{ counts['sent_to_factory'] }}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:#10B981;display:inline-block"></span>Принято
+                        </span>
+                        <strong>{{ counts['accepted'] }}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:#EF4444;display:inline-block"></span>Отклонено
+                        </span>
+                        <strong>{{ counts['rejected'] }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Просроченные ожидания -->
+        <div class="card" style="{% if overdue %}border-color:#FCA5A5{% endif %}">
+            <div class="card-header" style="{% if overdue %}background:#FFF5F5;color:#DC2626{% endif %}">
+                <i class="bi bi-hourglass-split"></i>
+                Ждут ответа &gt;3 дней
+                {% if overdue %}
+                <span class="badge badge-rejected" style="margin-left:auto">{{ overdue | length }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if overdue %}
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+                    {% for o in overdue %}
+                    <div style="padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+                        <div class="fw-600 text-sm">
+                            <a href="/orders/{{ o.id }}" style="color:var(--p)">№{{ o.id }}</a>
+                            — {{ o.factory_name }}
+                        </div>
+                        <div class="text-muted text-sm">{{ o.client_name }} · {{ o.sent_to_factory_at | dt }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <form method="post" action="/admin/send-reminders">
+                    <button class="btn btn-danger btn-sm" style="width:100%"
+                            onclick="return confirm('Отправить повторные письма {{ overdue | length }} фабрике(ам)?')">
+                        <i class="bi bi-envelope"></i>Отправить напоминания ({{ overdue | length }})
+                    </button>
+                </form>
+                {% else %}
+                <div class="empty" style="padding:30px 20px">
+                    <i class="bi bi-check-circle" style="color:#10B981"></i>
+                    <p>Все фабрики ответили вовремя</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const monthly = {{ monthly_data | tojson }};
+const labels  = monthly.map(d => d.label);
+const totals  = monthly.map(d => d.total);
+const comms   = monthly.map(d => d.commission);
+
+// Цвет акцента из CSS-переменной
+const accent = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#4F46E5';
+
+new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+        labels,
+        datasets: [
+            {
+                label: 'Выручка ₽',
+                data: totals,
+                backgroundColor: accent + '33',
+                borderColor: accent,
+                borderWidth: 2,
+                borderRadius: 6,
+            },
+            {
+                label: 'Комиссии ₽',
+                data: comms,
+                backgroundColor: '#10B98133',
+                borderColor: '#10B981',
+                borderWidth: 2,
+                borderRadius: 6,
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+            y: {
+                ticks: {
+                    callback: v => v >= 1000000
+                        ? (v/1000000).toFixed(1) + 'М ₽'
+                        : v >= 1000 ? (v/1000).toFixed(0) + 'К ₽' : v + ' ₽'
+                }
+            }
+        }
+    }
+});
+
+const counts = {{ counts | tojson }};
+new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Новые', 'Отправлено', 'Принято', 'Отклонено'],
+        datasets: [{
+            data: [counts.new, counts.sent_to_factory, counts.accepted, counts.rejected],
+            backgroundColor: ['#F59E0B','#3B82F6','#10B981','#EF4444'],
+            borderWidth: 0,
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '65%',
+        plugins: { legend: { display: false } }
+    }
+});
+</script>
+{% endblock %}

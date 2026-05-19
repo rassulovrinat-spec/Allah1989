@@ -134,17 +134,103 @@ def logout(request: Request, db: Session = Depends(get_db)):
 # ── orders ────────────────────────────────────────────────────────────────────
 
 @app.get("/orders", response_class=HTMLResponse)
-def orders_list(request: Request, status: str = None, db: Session = Depends(get_db)):
+def orders_list(request: Request, status: str = None, search: str = None,
+                manager: str = None, factory: str = None,
+                date_from: str = None, date_to: str = None,
+                db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user:
         return RedirectResponse("/login", 303)
     q = db.query(Order)
+    if user.role != "admin":
+        q = q.filter(Order.manager_username == user.username)
+    if status:
+        q = q.filter(Order.status == status)
+    if search:
+        like = f"%{search}%"
+        q = q.filter(
+            Order.client_name.ilike(like) | Order.model.ilike(like) |
+            Order.factory_name.ilike(like) | Order.client_phone.ilike(like)
+        )
+    if manager:
+        q = q.filter(Order.manager_username == manager)
+    if factory:
+        q = q.filter(Order.factory_name == factory)
+    if date_from:
+        try:
+            q = q.filter(Order.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import timedelta
+            q = q.filter(Order.created_at < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
+        except ValueError:
+            pass
+    orders = q.order_by(Order.created_at.desc()).all()
+    counts = {s: db.query(Order).filter(Order.status == s).count() for s in STATUS_LABELS}
+    managers = [r[0] for r in db.query(Order.manager_username).filter(
+        Order.manager_username.isnot(None)).distinct().all()]
+    factories = db.query(Factory).order_by(Factory.name).all()
+    return templates.TemplateResponse("orders.html", ctx(request, db, user,
+        orders=orders, current_status=status, counts=counts,
+        search=search or "", filter_manager=manager or "", filter_factory=factory or "",
+        date_from=date_from or "", date_to=date_to or "",
+        managers=managers, factories=factories))
+
+
+@app.get("/orders/export")
+def export_orders(request: Request, status: str = None, db: Session = Depends(get_db)):
+    from fastapi.responses import StreamingResponse
+    import io as _io
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    q = db.query(Order)
+    if user.role != "admin":
+        q = q.filter(Order.manager_username == user.username)
     if status:
         q = q.filter(Order.status == status)
     orders = q.order_by(Order.created_at.desc()).all()
-    counts = {s: db.query(Order).filter(Order.status == s).count() for s in STATUS_LABELS}
-    return templates.TemplateResponse("orders.html", ctx(request, db, user,
-        orders=orders, current_status=status, counts=counts))
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Заявки"
+    headers = ["#", "Дата", "Клиент", "Телефон", "Email", "Фабрика",
+               "Категория", "Модель", "Размеры", "Материал", "Цвет",
+               "Кол-во", "Срок поставки", "Сумма", "Менеджер", "Статус", "Принято фабрикой"]
+    ws.append(headers)
+    header_fill = PatternFill("solid", fgColor="4F46E5")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    status_map = {"new": "Новая", "sent_to_factory": "Отправлено",
+                  "accepted": "Принято", "rejected": "Отклонено"}
+    for o in orders:
+        ws.append([
+            o.id,
+            o.created_at.strftime("%d.%m.%Y %H:%M") if o.created_at else "",
+            o.client_name, o.client_phone or "", o.client_email or "",
+            o.factory_name, o.category, o.model,
+            o.dimensions or "", o.material or "", o.color or "",
+            o.quantity, o.delivery_date or "",
+            o.order_amount or "",
+            o.manager_username or "",
+            status_map.get(o.status, o.status),
+            o.factory_confirmed_at.strftime("%d.%m.%Y") if o.factory_confirmed_at else "",
+        ])
+    for col in ws.columns:
+        max_len = max(len(str(c.value or "")) for c in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+    buf = _io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    log(db, user, f"Экспорт заявок в Excel ({len(orders)} шт.)", request)
+    return StreamingResponse(buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=orders.xlsx"})
 
 
 @app.get("/orders/{order_id}", response_class=HTMLResponse)
@@ -392,6 +478,83 @@ def report_page(request: Request, month: int = None, year: int = None,
         total_commission=round(sum(r["commission"] for r in rows), 2),
         commission_rate=int(COMMISSION_RATE * 100),
         period_orders=period_orders))
+
+
+# ── dashboard (admin) ─────────────────────────────────────────────────────────
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    import calendar
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    counts = {s: db.query(Order).filter(Order.status == s).count() for s in STATUS_LABELS}
+    total_revenue = sum(
+        o.order_amount or 0 for o in db.query(Order).filter(Order.status == "accepted").all()
+    )
+    # Динамика за 6 месяцев
+    now = datetime.utcnow()
+    monthly_data = []
+    month_names = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]
+    for i in range(5, -1, -1):
+        month = (now.month - 1 - i) % 12 + 1
+        year = now.year + ((now.month - 1 - i) // 12)
+        first = datetime(year, month, 1)
+        last_day = calendar.monthrange(year, month)[1]
+        last = datetime(year, month, last_day, 23, 59, 59)
+        month_orders = db.query(Order).filter(
+            Order.factory_confirmed_at >= first,
+            Order.factory_confirmed_at <= last,
+            Order.status == "accepted"
+        ).all()
+        total = sum(o.order_amount or 0 for o in month_orders)
+        monthly_data.append({
+            "label": f"{month_names[month-1]} {str(year)[2:]}",
+            "total": round(total),
+            "commission": round(total * COMMISSION_RATE),
+            "count": len(month_orders),
+        })
+    # Топ менеджеры
+    mgr_rows = []
+    for (uname,) in db.query(Order.manager_username).filter(
+            Order.manager_username.isnot(None), Order.status == "accepted").distinct().all():
+        mgr_orders = db.query(Order).filter(
+            Order.manager_username == uname, Order.status == "accepted").all()
+        total = sum(o.order_amount or 0 for o in mgr_orders)
+        mgr_rows.append({"username": uname, "orders": len(mgr_orders),
+                         "total": round(total), "commission": round(total * COMMISSION_RATE)})
+    mgr_rows.sort(key=lambda x: x["total"], reverse=True)
+    # Ожидают ответа > 3 дней
+    overdue = db.query(Order).filter(
+        Order.status == "sent_to_factory",
+        Order.sent_to_factory_at <= datetime.utcnow() - timedelta(days=3)
+    ).all()
+    return templates.TemplateResponse("dashboard.html", ctx(request, db, user,
+        counts=counts, total_revenue=total_revenue, monthly_data=monthly_data,
+        mgr_rows=mgr_rows, overdue=overdue, commission_rate=int(COMMISSION_RATE * 100)))
+
+
+@app.post("/admin/send-reminders")
+def send_reminders(request: Request, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    overdue = db.query(Order).filter(
+        Order.status == "sent_to_factory",
+        Order.sent_to_factory_at <= datetime.utcnow() - timedelta(days=3)
+    ).all()
+    sent = 0
+    for order in overdue:
+        try:
+            confirm_url = f"{SITE_URL}/confirm/{order.confirmation_token}"
+            send_factory_email(order, confirm_url)
+            sent += 1
+        except Exception:
+            pass
+    log(db, user, f"Напоминания фабрикам: {sent} писем", request)
+    return RedirectResponse(f"/dashboard?msg=Отправлено напоминаний: {sent}", 303)
 
 
 # ── factories (admin) ─────────────────────────────────────────────────────────
