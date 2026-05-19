@@ -407,11 +407,12 @@ def factories_list(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/factories/add")
 def add_factory(request: Request, name: str = Form(...), email: str = Form(...),
-                db: Session = Depends(get_db)):
+                reply_email: str = Form(""), db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user or user.role != "admin":
         return RedirectResponse("/orders", 303)
-    db.add(Factory(name=name.strip(), email=email.strip()))
+    db.add(Factory(name=name.strip(), email=email.strip(),
+                   reply_email=reply_email.strip() or None))
     db.commit()
     log(db, user, f"Добавлена фабрика «{name}»", request)
     return RedirectResponse("/factories?msg=Фабрика добавлена", 303)
@@ -495,6 +496,36 @@ def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
         log(db, user, f"Удалён «{target.username}»", request)
         db.delete(target); db.commit()
     return RedirectResponse("/users?msg=Пользователь удалён", 303)
+
+
+@app.post("/users/me/update")
+def update_my_profile(request: Request,
+                      display_name: str = Form(""),
+                      new_username: str = Form(""),
+                      new_password: str = Form(""),
+                      db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    if display_name.strip():
+        user.display_name = display_name.strip()
+    if new_username.strip() and new_username.strip() != user.username:
+        if db.query(User).filter(User.username == new_username.strip()).first():
+            users = db.query(User).order_by(User.created_at).all()
+            return templates.TemplateResponse("users.html", ctx(request, db, user,
+                users=users, profile_error="Логин уже занят"))
+        user.username = new_username.strip()
+    if new_password.strip():
+        user.password_hash = hash_password(new_password.strip())
+    db.commit()
+    log(db, user, "Обновил свой профиль", request)
+    # Обновляем сессию с новым логином
+    from fastapi.responses import Response
+    from app.auth import make_token
+    resp = RedirectResponse("/users?msg=Профиль обновлён", 303)
+    token = make_token(user.id, user.username, user.role)
+    resp.set_cookie("session", token, httponly=True, max_age=86400*30, samesite="lax")
+    return resp
 
 
 # ── activity (admin) ──────────────────────────────────────────────────────────

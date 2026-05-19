@@ -25,6 +25,7 @@ class Factory(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False, unique=True)
     email = Column(String(200), nullable=False)
+    reply_email = Column(String(200))  # ответное письмо идёт сюда (Reply-To)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

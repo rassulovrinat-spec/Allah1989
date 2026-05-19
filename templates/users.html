@@ -97,6 +97,37 @@
     </div>
 
     <div class="col col-4">
+        <!-- Мой профиль -->
+        <div class="card" style="margin-bottom:16px;border-color:var(--p)">
+            <div class="card-header" style="background:var(--p-light);color:var(--p)">
+                <i class="bi bi-person-gear"></i>Мой профиль
+            </div>
+            <div class="card-body">
+                {% if profile_error %}
+                <div class="alert alert-error" style="margin-bottom:12px">{{ profile_error }}</div>
+                {% endif %}
+                <form method="post" action="/users/me/update">
+                    <div class="form-group">
+                        <label>Отображаемое имя</label>
+                        <input type="text" name="display_name"
+                               value="{{ me.display_name or '' }}" placeholder="{{ me.username }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Новый логин</label>
+                        <input type="text" name="new_username"
+                               value="{{ me.username }}" placeholder="{{ me.username }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Новый пароль</label>
+                        <input type="password" name="new_password" placeholder="Оставьте пустым — без изменений">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="width:100%">
+                        <i class="bi bi-check2"></i>Сохранить
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header"><i class="bi bi-person-plus"></i>Добавить сотрудника</div>
             <div class="card-body">
