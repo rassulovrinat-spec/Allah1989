@@ -42,6 +42,7 @@ def _migrate():
     add_col("orders", "order_amount", "REAL")
     add_col("orders", "manager_id", "INTEGER")
     add_col("orders", "manager_username", "TEXT")
+    add_col("users", "telegram_id", "TEXT")
 
     conn.commit()
     conn.close()

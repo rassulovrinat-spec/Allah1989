@@ -16,6 +16,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime)
+    telegram_id = Column(String(50))  # Telegram chat_id менеджера
 
 
 class Factory(Base):

@@ -16,10 +16,25 @@ from app.models import (Order, Factory, OrderStatus, User, ActivityLog,
                         SiteSettings, PriceBatch, PriceItem, OrderAttachment)
 from app.auth import verify_password, hash_password, make_token, decode_token
 from app.email_service import send_factory_email, send_admin_notification
-from app.price_parser import parse_excel
+from app.price_parser import parse_price_file
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 COMMISSION_RATE = 0.03
+
+
+def send_telegram_message(chat_id, text: str):
+    """Отправить сообщение менеджеру в Telegram через Bot API."""
+    import urllib.request, json as _json
+    token = os.getenv("BOT_TOKEN", "")
+    if not token or not chat_id:
+        return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = _json.dumps({"chat_id": str(chat_id), "text": text, "parse_mode": "Markdown"}).encode()
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
 
 app = FastAPI(title="Мебельные заявки")
 
@@ -243,6 +258,19 @@ def factory_confirm(token: str, request: Request, db: Session = Depends(get_db))
         send_admin_notification(order)
     except Exception:
         pass
+    # Уведомить менеджера в Telegram если у него есть chat_id
+    if order.manager_id:
+        manager = db.query(User).filter(User.id == order.manager_id).first()
+        if manager and manager.telegram_id:
+            amount_str = f"{int(order.order_amount):,} ₽".replace(",", " ") if order.order_amount else "—"
+            send_telegram_message(
+                manager.telegram_id,
+                f"✅ *Заявка №{order.id} подтверждена фабрикой!*\n\n"
+                f"Клиент: {order.client_name}\n"
+                f"Фабрика: {order.factory_name}\n"
+                f"Модель: {order.model}\n"
+                f"Сумма: {amount_str}"
+            )
     return templates.TemplateResponse("confirm_result.html",
         {"request": request, "success": True, "order": order,
          "message": f"Заявка №{order.id} подтверждена. Спасибо!"})
@@ -277,7 +305,7 @@ async def upload_pricelist(request: Request, factory_name: str = Form(""),
         return RedirectResponse("/pricelist", 303)
     contents = await file.read()
     try:
-        items = parse_excel(contents)
+        items = parse_price_file(contents, file.filename or "")
     except Exception as e:
         return RedirectResponse(f"/pricelist?err={e}", 303)
     if not items:
@@ -514,6 +542,11 @@ async def verify_manager(request: Request, db: Session = Depends(get_db)):
         return {"ok": False, "error": "Неверный логин или пароль"}
     if user.role not in ("admin", "manager"):
         return {"ok": False, "error": "Нет доступа"}
+    # Сохраняем Telegram chat_id менеджера для уведомлений
+    telegram_id = str(data.get("telegram_id", "")).strip()
+    if telegram_id and user.telegram_id != telegram_id:
+        user.telegram_id = telegram_id
+        db.commit()
     return {"ok": True, "user_id": user.id, "username": user.username,
             "display_name": user.display_name or user.username, "role": user.role}
 

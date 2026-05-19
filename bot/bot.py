@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import httpx
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, Router, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -23,8 +23,7 @@ SITE_URL   = os.getenv("SITE_URL", "http://localhost:8000")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN не установлен в .env")
 
-bot = Bot(token=BOT_TOKEN)
-dp  = Dispatcher()
+router = Router()
 
 CATEGORIES = ["Диван", "Кровать", "Шкаф", "Стол", "Кухня", "Другое"]
 
@@ -72,27 +71,36 @@ def get_factory_names():
 
 # ── /start ────────────────────────────────────────────────────────────────────
 
-@dp.message(Command("start"))
+@router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
-    await state.clear()
     data = await state.get_data()
+    manager_id = data.get("manager_id")
     manager_name = data.get("manager_name")
-    if manager_name:
-        text = (f"👋 С возвращением, {manager_name}!\n\n"
-                "/order — создать заявку\n"
-                "/logout — выйти из аккаунта")
+
+    if manager_id:
+        # Уже авторизован — сбрасываем только активную форму, сессию сохраняем
+        await state.set_state(None)
+        await message.answer(
+            f"👋 С возвращением, *{manager_name}*!\n\n"
+            "/order — создать заявку\n"
+            "/whoami — кто я\n"
+            "/logout — выйти из аккаунта",
+            parse_mode="Markdown", reply_markup=ReplyKeyboardRemove()
+        )
     else:
-        text = ("👋 Добро пожаловать!\n\n"
-                "/order — оформить заявку (клиент)\n"
-                "/login — войти как менеджер\n\n"
-                "Менеджеры: войдите через /login, "
-                "чтобы заявки учитывались в отчёте.")
-    await message.answer(text, reply_markup=ReplyKeyboardRemove())
+        # Не авторизован — сразу просим логин
+        await state.clear()
+        await state.set_state(Login.username)
+        await message.answer(
+            "👋 Добро пожаловать!\n\n"
+            "Введите *логин* для входа в систему:",
+            parse_mode="Markdown", reply_markup=ReplyKeyboardRemove()
+        )
 
 
 # ── /login (менеджеры) ────────────────────────────────────────────────────────
 
-@dp.message(Command("login"))
+@router.message(Command("login"))
 async def cmd_login(message: types.Message, state: FSMContext):
     data = await state.get_data()
     if data.get("manager_id"):
@@ -104,32 +112,37 @@ async def cmd_login(message: types.Message, state: FSMContext):
     await message.answer("🔐 Вход для менеджеров\n\nВведите логин:", reply_markup=ReplyKeyboardRemove())
 
 
-@dp.message(Login.username)
+@router.message(Login.username)
 async def login_username(message: types.Message, state: FSMContext):
     await state.update_data(login_username=message.text.strip())
     await state.set_state(Login.password)
     await message.answer("Введите пароль:")
 
 
-@dp.message(Login.password)
+@router.message(Login.password)
 async def login_password(message: types.Message, state: FSMContext):
     data = await state.get_data()
     username = data.get("login_username", "")
     password = message.text.strip()
 
+    telegram_id = str(message.from_user.id)
     try:
         async with httpx.AsyncClient() as client:
             r = await client.post(f"{SITE_URL}/api/verify-manager",
-                                  json={"username": username, "password": password},
+                                  json={"username": username, "password": password,
+                                        "telegram_id": telegram_id},
                                   timeout=10)
             result = r.json()
     except Exception:
-        # Fallback: check DB directly
         db = SessionLocal()
         try:
             from app.models import User
             user = db.query(User).filter(User.username == username).first()
             if user and user.is_active and verify_password(password, user.password_hash):
+                # Сохраняем telegram_id напрямую в БД при fallback
+                if user.telegram_id != telegram_id:
+                    user.telegram_id = telegram_id
+                    db.commit()
                 result = {"ok": True, "user_id": user.id, "username": user.username,
                           "display_name": user.display_name or user.username}
             else:
@@ -159,7 +172,7 @@ async def login_password(message: types.Message, state: FSMContext):
     )
 
 
-@dp.message(Command("whoami"))
+@router.message(Command("whoami"))
 async def cmd_whoami(message: types.Message, state: FSMContext):
     data = await state.get_data()
     if data.get("manager_id"):
@@ -169,7 +182,7 @@ async def cmd_whoami(message: types.Message, state: FSMContext):
         await message.answer("Вы не авторизованы.\n/login — войти как менеджер")
 
 
-@dp.message(Command("logout"))
+@router.message(Command("logout"))
 async def cmd_logout(message: types.Message, state: FSMContext):
     data = await state.get_data()
     name = data.get("manager_name", "")
@@ -179,14 +192,13 @@ async def cmd_logout(message: types.Message, state: FSMContext):
 
 # ── /order ────────────────────────────────────────────────────────────────────
 
-@dp.message(Command("order"))
+@router.message(Command("order"))
 async def cmd_order(message: types.Message, state: FSMContext):
     mgr_data = await state.get_data()
     manager_id = mgr_data.get("manager_id")
     manager_username = mgr_data.get("manager_username")
     manager_name = mgr_data.get("manager_name")
     await state.clear()
-    # Restore manager session after clear
     if manager_id:
         await state.update_data(manager_id=manager_id,
                                 manager_username=manager_username,
@@ -197,7 +209,7 @@ async def cmd_order(message: types.Message, state: FSMContext):
                          parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
 
 
-@dp.message(Command("cancel"))
+@router.message(Command("cancel"))
 async def cmd_cancel(message: types.Message, state: FSMContext):
     mgr_data = await state.get_data()
     mid = mgr_data.get("manager_id")
@@ -211,21 +223,21 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
 
 # ── Form steps ────────────────────────────────────────────────────────────────
 
-@dp.message(Form.name)
+@router.message(Form.name)
 async def step_name(message: types.Message, state: FSMContext):
     await state.update_data(client_name=message.text.strip())
     await state.set_state(Form.phone)
     await message.answer("*Шаг 2 из 15*\n\nТелефон клиента:", parse_mode="Markdown")
 
 
-@dp.message(Form.phone)
+@router.message(Form.phone)
 async def step_phone(message: types.Message, state: FSMContext):
     await state.update_data(client_phone=message.text.strip())
     await state.set_state(Form.email)
     await message.answer("*Шаг 3 из 15*\n\nEmail клиента (или `-`):", parse_mode="Markdown")
 
 
-@dp.message(Form.email)
+@router.message(Form.email)
 async def step_email(message: types.Message, state: FSMContext):
     v = message.text.strip()
     await state.update_data(client_email=None if v == "-" else v)
@@ -240,7 +252,7 @@ async def step_email(message: types.Message, state: FSMContext):
                          parse_mode="Markdown", reply_markup=kb(*[[n] for n in names]))
 
 
-@dp.message(Form.factory)
+@router.message(Form.factory)
 async def step_factory(message: types.Message, state: FSMContext):
     data = await state.get_data()
     valid = data.get("factory_list", [])
@@ -254,7 +266,7 @@ async def step_factory(message: types.Message, state: FSMContext):
                          parse_mode="Markdown", reply_markup=kb(*rows))
 
 
-@dp.message(Form.category)
+@router.message(Form.category)
 async def step_category(message: types.Message, state: FSMContext):
     if message.text not in CATEGORIES:
         rows = [CATEGORIES[i:i+2] for i in range(0, len(CATEGORIES), 2)]
@@ -266,14 +278,14 @@ async def step_category(message: types.Message, state: FSMContext):
                          parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
 
 
-@dp.message(Form.model)
+@router.message(Form.model)
 async def step_model(message: types.Message, state: FSMContext):
     await state.update_data(model=message.text.strip())
     await state.set_state(Form.dimensions)
     await message.answer("*Шаг 7 из 15*\n\nРазмеры Ш×Г×В (мм) или `-`:", parse_mode="Markdown")
 
 
-@dp.message(Form.dimensions)
+@router.message(Form.dimensions)
 async def step_dimensions(message: types.Message, state: FSMContext):
     v = message.text.strip()
     await state.update_data(dimensions=None if v == "-" else v)
@@ -281,28 +293,28 @@ async def step_dimensions(message: types.Message, state: FSMContext):
     await message.answer("*Шаг 8 из 15*\n\nМатериал / обивка:", parse_mode="Markdown")
 
 
-@dp.message(Form.material)
+@router.message(Form.material)
 async def step_material(message: types.Message, state: FSMContext):
     await state.update_data(material=message.text.strip())
     await state.set_state(Form.color)
     await message.answer("*Шаг 9 из 15*\n\nЦвет / расцветка:", parse_mode="Markdown")
 
 
-@dp.message(Form.color)
+@router.message(Form.color)
 async def step_color(message: types.Message, state: FSMContext):
     await state.update_data(color=message.text.strip())
     await state.set_state(Form.configuration)
     await message.answer("*Шаг 10 из 15*\n\nКомплектация:", parse_mode="Markdown")
 
 
-@dp.message(Form.configuration)
+@router.message(Form.configuration)
 async def step_config(message: types.Message, state: FSMContext):
     await state.update_data(configuration=message.text.strip())
     await state.set_state(Form.quantity)
     await message.answer("*Шаг 11 из 15*\n\nКоличество (шт):", parse_mode="Markdown")
 
 
-@dp.message(Form.quantity)
+@router.message(Form.quantity)
 async def step_quantity(message: types.Message, state: FSMContext):
     try:
         qty = int(message.text.strip())
@@ -317,14 +329,14 @@ async def step_quantity(message: types.Message, state: FSMContext):
                          parse_mode="Markdown")
 
 
-@dp.message(Form.delivery)
+@router.message(Form.delivery)
 async def step_delivery(message: types.Message, state: FSMContext):
     await state.update_data(delivery_date=message.text.strip())
     await state.set_state(Form.comments)
     await message.answer("*Шаг 13 из 15*\n\nКомментарии (или `-`):", parse_mode="Markdown")
 
 
-@dp.message(Form.comments)
+@router.message(Form.comments)
 async def step_comments(message: types.Message, state: FSMContext):
     v = message.text.strip()
     await state.update_data(comments=None if v == "-" else v)
@@ -333,13 +345,13 @@ async def step_comments(message: types.Message, state: FSMContext):
                          parse_mode="Markdown")
 
 
-@dp.message(Form.photo, F.photo)
+@router.message(Form.photo, F.photo)
 async def step_photo_img(message: types.Message, state: FSMContext):
     await state.update_data(photo_url=f"tg:{message.photo[-1].file_id}")
     await ask_amount(message, state)
 
 
-@dp.message(Form.photo)
+@router.message(Form.photo)
 async def step_photo_skip(message: types.Message, state: FSMContext):
     await state.update_data(photo_url=None)
     await ask_amount(message, state)
@@ -351,7 +363,7 @@ async def ask_amount(message: types.Message, state: FSMContext):
                          parse_mode="Markdown")
 
 
-@dp.message(Form.amount)
+@router.message(Form.amount)
 async def step_amount(message: types.Message, state: FSMContext):
     v = message.text.strip()
     amount = None
@@ -394,7 +406,7 @@ async def show_summary(message: types.Message, state: FSMContext):
                          reply_markup=kb(["✅ Подтвердить и отправить"], ["❌ Начать заново"]))
 
 
-@dp.message(Form.confirm, F.text == "✅ Подтвердить и отправить")
+@router.message(Form.confirm, F.text == "✅ Подтвердить и отправить")
 async def step_confirm(message: types.Message, state: FSMContext):
     d = await state.get_data()
     db = SessionLocal()
@@ -424,7 +436,6 @@ async def step_confirm(message: types.Message, state: FSMContext):
     finally:
         db.close()
 
-    # Restore manager session
     mid = d.get("manager_id")
     mu  = d.get("manager_username")
     mn  = d.get("manager_name")
@@ -438,12 +449,12 @@ async def step_confirm(message: types.Message, state: FSMContext):
     )
 
 
-@dp.message(Form.confirm, F.text == "❌ Начать заново")
+@router.message(Form.confirm, F.text == "❌ Начать заново")
 async def step_restart(message: types.Message, state: FSMContext):
     await cmd_order(message, state)
 
 
-@dp.message(Form.confirm)
+@router.message(Form.confirm)
 async def step_confirm_invalid(message: types.Message, state: FSMContext):
     await message.answer("Используйте кнопки:",
                          reply_markup=kb(["✅ Подтвердить и отправить"], ["❌ Начать заново"]))
@@ -453,6 +464,9 @@ async def step_confirm_invalid(message: types.Message, state: FSMContext):
 
 async def main():
     init_db()
+    bot = Bot(token=BOT_TOKEN)
+    dp  = Dispatcher()
+    dp.include_router(router)
     print("Бот запущен. Ctrl+C для остановки.")
     await dp.start_polling(bot)
 
