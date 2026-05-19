@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Фабрики{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-building me-2"></i>Фабрики</h5>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Название</th>
+                            <th>Email</th>
+                            <th>Добавлена</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in factories %}
+                        <tr>
+                            <td class="text-muted small">{{ f.id }}</td>
+                            <td class="fw-semibold">{{ f.name }}</td>
+                            <td>{{ f.email }}</td>
+                            <td class="text-muted small">{{ f.created_at | dt }}</td>
+                            <td>
+                                <form method="post" action="/factories/{{ f.id }}/delete" class="d-inline"
+                                      onsubmit="return confirm('Удалить фабрику {{ f.name }}?')">
+                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">Фабрик нет</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-plus-circle me-2"></i>Добавить фабрику</div>
+            <div class="card-body">
+                <form method="post" action="/factories/add">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Название</label>
+                        <input type="text" name="name" class="form-control" placeholder="АО МебельПром" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Email для заявок</label>
+                        <input type="email" name="email" class="form-control" placeholder="orders@factory.ru" required>
+                    </div>
+                    <button type="submit" class="btn btn-dark w-100">Добавить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

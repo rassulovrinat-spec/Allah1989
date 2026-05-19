@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Заявки{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2"></i>Заявки</h5>
+    <span class="text-muted small">Всего: {{ orders | length }}</span>
+</div>
+
+<!-- Status filter tabs -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <a href="/orders" class="btn btn-sm {% if not current_status %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+        Все <span class="badge bg-secondary ms-1">{{ counts.values() | sum }}</span>
+    </a>
+    <a href="/orders?status=new" class="btn btn-sm {% if current_status == 'new' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+        Новые <span class="badge bg-warning text-dark ms-1">{{ counts['new'] }}</span>
+    </a>
+    <a href="/orders?status=sent_to_factory" class="btn btn-sm {% if current_status == 'sent_to_factory' %}btn-info{% else %}btn-outline-info{% endif %}">
+        Отправлено <span class="badge bg-info text-dark ms-1">{{ counts['sent_to_factory'] }}</span>
+    </a>
+    <a href="/orders?status=accepted" class="btn btn-sm {% if current_status == 'accepted' %}btn-success{% else %}btn-outline-success{% endif %}">
+        Принято <span class="badge bg-success ms-1">{{ counts['accepted'] }}</span>
+    </a>
+    <a href="/orders?status=rejected" class="btn btn-sm {% if current_status == 'rejected' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+        Отклонено <span class="badge bg-danger ms-1">{{ counts['rejected'] }}</span>
+    </a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Дата</th>
+                    <th>Клиент</th>
+                    <th>Фабрика</th>
+                    <th>Категория</th>
+                    <th>Модель</th>
+                    <th>Кол-во</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders %}
+                <tr>
+                    <td class="text-muted small">{{ o.id }}</td>
+                    <td class="small text-nowrap">{{ o.created_at | dt }}</td>
+                    <td>
+                        <div class="fw-semibold">{{ o.client_name }}</div>
+                        <div class="text-muted small">{{ o.client_phone or '' }}</div>
+                    </td>
+                    <td class="small">{{ o.factory_name }}</td>
+                    <td class="small">{{ o.category }}</td>
+                    <td class="small">{{ o.model }}</td>
+                    <td class="text-center small">{{ o.quantity }}</td>
+                    <td>
+                        <span class="badge bg-{{ status_colors[o.status] }} text-nowrap">
+                            {{ status_labels[o.status] }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="/orders/{{ o.id }}" class="btn btn-sm btn-outline-dark">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        Заявок нет
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

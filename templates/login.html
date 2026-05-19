@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — МебельЗаявки</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background: #f1f3f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    </style>
+</head>
+<body>
+<div class="card" style="width:360px;box-shadow:0 4px 20px rgba(0,0,0,.1)">
+    <div class="card-header bg-dark text-white text-center py-4">
+        <div class="fs-4 fw-bold"><i class="bi bi-box-seam me-2"></i>МебельЗаявки</div>
+        <div class="text-secondary small mt-1">Панель администратора</div>
+    </div>
+    <div class="card-body p-4">
+        {% if error %}
+        <div class="alert alert-danger py-2 small">{{ error }}</div>
+        {% endif %}
+        <form method="post" action="/login">
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Логин</label>
+                <input type="text" name="username" class="form-control" required autofocus>
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-semibold">Пароль</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-dark w-100">Войти</button>
+        </form>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
