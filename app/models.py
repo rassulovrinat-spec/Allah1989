@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class User(Base):
     username = Column(String(100), unique=True, nullable=False)
     password_hash = Column(String(300), nullable=False)
     display_name = Column(String(200))
-    role = Column(String(20), default="manager")  # admin / manager
+    role = Column(String(20), default="manager")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime)
@@ -53,11 +53,51 @@ class Order(Base):
     comments = Column(Text)
     photo_url = Column(String(500))
 
+    # Финансы
+    order_amount = Column(Float)           # сумма заказа в рублях
+    manager_id = Column(Integer)           # id менеджера из User
+    manager_username = Column(String(100)) # логин менеджера
+
     status = Column(String(50), default="new")
     rejection_reason = Column(Text)
     sent_to_factory_at = Column(DateTime)
     factory_confirmed_at = Column(DateTime)
     confirmation_token = Column(String(36), unique=True)
+
+
+class OrderAttachment(Base):
+    __tablename__ = "order_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, nullable=False)
+    filename = Column(String(300), nullable=False)
+    original_name = Column(String(300))
+    uploaded_by = Column(String(100))
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PriceBatch(Base):
+    __tablename__ = "price_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(String(36), unique=True, nullable=False)
+    factory_name = Column(String(200))
+    filename = Column(String(300))
+    item_count = Column(Integer, default=0)
+    uploaded_by = Column(String(100))
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PriceItem(Base):
+    __tablename__ = "price_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_uuid = Column(String(36), nullable=False)
+    article = Column(String(200))
+    name = Column(String(500), nullable=False)
+    category = Column(String(200))
+    base_price = Column(Float, nullable=False)
+    markup_price = Column(Float, nullable=False)  # base * 1.3
 
 
 class ActivityLog(Base):

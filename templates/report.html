@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% set active_page = 'report' %}
+{% block title %}Отчёт{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Отчёт по менеджерам</div>
+        <div class="page-subtitle">Комиссия {{ commission_rate }}% от суммы принятых заявок</div>
+    </div>
+</div>
+
+<!-- Month filter -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-body" style="padding:14px 20px">
+        <form method="get" action="/report" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:0 0 160px">
+                <label>Месяц</label>
+                <select name="month">
+                    {% for m in months %}
+                    <option value="{{ loop.index }}" {{ 'selected' if month == loop.index else '' }}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin:0;flex:0 0 100px">
+                <label>Год</label>
+                <input type="number" name="year" value="{{ year }}" min="2020" max="2030">
+            </div>
+            <button type="submit" class="btn btn-primary">Показать</button>
+        </form>
+    </div>
+</div>
+
+<!-- Summary stats -->
+<div class="stats" style="margin-bottom:20px">
+    <div class="stat-card">
+        <div class="stat-value">{{ period_orders | length }}</div>
+        <div class="stat-label">Принятых заявок</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="font-size:20px">{{ total_amount | rub }}</div>
+        <div class="stat-label">Общая сумма заказов</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--p)">
+        <div class="stat-value" style="font-size:20px;color:var(--p)">{{ total_commission | rub }}</div>
+        <div class="stat-label">Итого комиссий ({{ commission_rate }}%)</div>
+    </div>
+</div>
+
+<!-- Manager table -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header">
+        <i class="bi bi-people"></i>
+        По менеджерам — {{ months[month-1] }} {{ year }}
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Менеджер</th>
+                    <th>Заявок</th>
+                    <th>Сумма заказов</th>
+                    <th style="color:var(--p)">Комиссия {{ commission_rate }}%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td class="fw-600">{{ row.username }}</td>
+                    <td class="text-sm">{{ row.orders | length }}</td>
+                    <td>{{ row.total | rub }}</td>
+                    <td class="fw-600" style="color:var(--p)">{{ row.commission | rub }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">
+                        <div class="empty">
+                            <i class="bi bi-bar-chart"></i>
+                            <p>Принятых заявок с указанной суммой за этот период нет</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if rows %}
+            <tfoot>
+                <tr style="background:var(--surface2)">
+                    <td class="fw-600">Итого</td>
+                    <td class="fw-600">{{ period_orders | length }}</td>
+                    <td class="fw-600">{{ total_amount | rub }}</td>
+                    <td class="fw-600" style="color:var(--p)">{{ total_commission | rub }}</td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<!-- Detailed orders -->
+{% if period_orders %}
+<div class="card">
+    <div class="card-header"><i class="bi bi-list-task"></i>Принятые заявки за период</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Дата принятия</th>
+                    <th>Клиент</th>
+                    <th>Модель</th>
+                    <th>Менеджер</th>
+                    <th>Сумма</th>
+                    <th>Комиссия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in period_orders %}
+                <tr>
+                    <td class="text-muted text-sm">
+                        <a href="/orders/{{ o.id }}" style="color:var(--p)">{{ o.id }}</a>
+                    </td>
+                    <td class="text-muted text-sm">{{ o.factory_confirmed_at | dt }}</td>
+                    <td>{{ o.client_name }}</td>
+                    <td class="text-sm">{{ o.model }}</td>
+                    <td class="text-sm">{{ o.manager_username or '—' }}</td>
+                    <td>{{ o.order_amount | rub }}</td>
+                    <td class="fw-600" style="color:var(--p)">
+                        {{ (o.order_amount * commission_rate / 100) | rub if o.order_amount else '—' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

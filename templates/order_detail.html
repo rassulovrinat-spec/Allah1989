@@ -61,8 +61,29 @@
             </div>
         </div>
 
+        <!-- Amount + commission -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-currency-dollar"></i>Финансы</div>
+            <div class="card-body">
+                <div class="detail-row">
+                    <div class="detail-label">Сумма заказа</div>
+                    <div class="detail-value fw-600">{{ order.order_amount | rub }}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Комиссия менеджера ({{ commission_rate }}%)</div>
+                    <div class="detail-value fw-600" style="color:var(--p)">
+                        {{ commission | rub if commission else '—' }}
+                    </div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Менеджер</div>
+                    <div class="detail-value">{{ order.manager_username or '—' }}</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Product -->
-        <div class="card">
+        <div class="card" style="margin-bottom:16px" id="product-card">
             <div class="card-header"><i class="bi bi-box-seam"></i>Характеристики</div>
             <div class="card-body">
                 <div class="detail-row">
@@ -112,6 +133,39 @@
                     </div>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- Attachments -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-paperclip"></i>Вложения</div>
+            <div class="card-body">
+                {% if attachments %}
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+                    {% for a in attachments %}
+                    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+                        <i class="bi bi-file-earmark-excel" style="color:#059669;font-size:18px"></i>
+                        <div style="flex:1;min-width:0">
+                            <div class="fw-600 text-sm" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.original_name }}</div>
+                            <div class="text-muted text-sm">{{ a.uploaded_by }} · {{ a.uploaded_at | dt }}</div>
+                        </div>
+                        <a href="/orders/{{ order.id }}/download/{{ a.filename }}" class="btn btn-outline btn-sm">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <form method="post" action="/orders/{{ order.id }}/upload" enctype="multipart/form-data"
+                      style="display:flex;gap:8px;align-items:flex-end">
+                    <div class="form-group" style="margin:0;flex:1">
+                        <label>Прикрепить файл (Excel, PDF)</label>
+                        <input type="file" name="file" accept=".xlsx,.xls,.pdf,.doc,.docx" required>
+                    </div>
+                    <button type="submit" class="btn btn-outline btn-sm" style="white-space:nowrap">
+                        <i class="bi bi-upload"></i>Загрузить
+                    </button>
+                </form>
             </div>
         </div>
     </div>

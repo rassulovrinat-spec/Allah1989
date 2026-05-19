@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% set active_page = 'pricelist' %}
+{% block title %}Прайс-листы{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Прайс-листы</div>
+        <div class="page-subtitle">Оптовые цены + наценка 30%</div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left: list + table -->
+    <div class="col col-8">
+        <!-- Batch selector -->
+        {% if batches %}
+        <div class="card" style="margin-bottom:16px">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Прайс-лист</th>
+                            <th>Позиций</th>
+                            <th>Загружен</th>
+                            <th>Кем</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in batches %}
+                        <tr style="{% if selected and selected.uuid == b.uuid %}background:var(--p-light){% endif %}">
+                            <td>
+                                <a href="/pricelist?batch_id={{ b.uuid }}" style="color:var(--p);font-weight:600">
+                                    {{ b.factory_name or b.filename }}
+                                </a>
+                            </td>
+                            <td class="text-sm">{{ b.item_count }}</td>
+                            <td class="text-muted text-sm">{{ b.uploaded_at | dt }}</td>
+                            <td class="text-muted text-sm">{{ b.uploaded_by }}</td>
+                            <td>
+                                {% if me.role == 'admin' %}
+                                <form method="post" action="/pricelist/{{ b.uuid }}/delete"
+                                      onsubmit="return confirm('Удалить прайс «{{ b.factory_name }}»?')">
+                                    <button class="btn-icon"><i class="bi bi-trash"></i></button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Price items -->
+        {% if items %}
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-list-ul"></i>
+                {{ selected.factory_name or selected.filename }}
+                <span style="margin-left:auto;font-size:12px;color:var(--text3)">{{ items | length }} позиций</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Артикул</th>
+                            <th>Наименование</th>
+                            <th>Категория</th>
+                            <th>Оптовая цена</th>
+                            <th style="color:#059669">+30% (продажа)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td class="text-muted text-sm">{{ item.article or '—' }}</td>
+                            <td class="fw-600">{{ item.name }}</td>
+                            <td class="text-sm">{{ item.category or '—' }}</td>
+                            <td class="text-sm">{{ item.base_price | rub }}</td>
+                            <td class="fw-600" style="color:#059669">{{ item.markup_price | rub }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% elif not batches %}
+        <div class="card">
+            <div class="empty">
+                <i class="bi bi-table"></i>
+                <p>Прайс-листов ещё нет. Загрузите первый.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right: upload form -->
+    {% if me.role == 'admin' %}
+    <div class="col col-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-upload"></i>Загрузить прайс-лист</div>
+            <div class="card-body">
+                <form method="post" action="/pricelist/upload" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label>Название / Фабрика</label>
+                        <input type="text" name="factory_name" placeholder="Например: МебельПром">
+                    </div>
+                    <div class="form-group">
+                        <label>Excel-файл (.xlsx)</label>
+                        <input type="file" name="file" accept=".xlsx,.xls" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">
+                        <i class="bi bi-upload"></i>Загрузить
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+            <div class="card-header"><i class="bi bi-info-circle"></i>Формат файла</div>
+            <div class="card-body">
+                <p class="text-muted text-sm" style="margin-bottom:10px">Excel должен содержать колонки:</p>
+                <ul style="font-size:12px;color:var(--text2);padding-left:16px;line-height:2">
+                    <li><strong>Артикул</strong> — код товара</li>
+                    <li><strong>Наименование</strong> — название</li>
+                    <li><strong>Категория</strong> — тип (необязательно)</li>
+                    <li><strong>Цена</strong> — оптовая цена (обязательно)</li>
+                </ul>
+                <p class="text-muted text-sm" style="margin-top:8px">Система автоматически добавит 30% к каждой позиции.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

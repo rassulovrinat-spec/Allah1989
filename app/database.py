@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
@@ -22,14 +22,40 @@ def get_db():
         db.close()
 
 
+def _migrate():
+    """Add missing columns to existing tables without losing data."""
+    if "sqlite" not in DATABASE_URL:
+        return
+    db_path = DATABASE_URL.replace("sqlite:///", "").lstrip("./")
+    if not os.path.exists(db_path):
+        return
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    def add_col(table, col, col_type):
+        cur.execute(f"PRAGMA table_info({table})")
+        existing = [r[1] for r in cur.fetchall()]
+        if col not in existing:
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+
+    add_col("orders", "order_amount", "REAL")
+    add_col("orders", "manager_id", "INTEGER")
+    add_col("orders", "manager_username", "TEXT")
+
+    conn.commit()
+    conn.close()
+
+
 def init_db():
     from app.models import Base, Factory, User, SiteSettings
     from app.auth import hash_password
 
+    _migrate()
     Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
     try:
-        # Admin user from env (only on first run)
         if not db.query(User).filter(User.role == "admin").first():
             admin_username = os.getenv("ADMIN_USERNAME", "admin")
             admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
@@ -40,7 +66,6 @@ def init_db():
                 role="admin",
             ))
 
-        # Sample factories
         if db.query(Factory).count() == 0:
             db.add_all([
                 Factory(name="Фабрика №1", email="factory1@example.com"),
@@ -48,7 +73,6 @@ def init_db():
                 Factory(name="КорпусМебель", email="factory3@example.com"),
             ])
 
-        # Default site settings
         if db.query(SiteSettings).count() == 0:
             db.add(SiteSettings())
 
