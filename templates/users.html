@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% set active_page = 'users' %}
+{% block title %}Сотрудники{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Сотрудники</div>
+        <div class="page-subtitle">Управление доступом к панели</div>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-error"><i class="bi bi-exclamation-circle"></i>{{ error }}</div>
+{% endif %}
+
+<div class="row">
+    <div class="col col-8">
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Пользователь</th>
+                            <th>Роль</th>
+                            <th>Последний вход</th>
+                            <th>Создан</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>
+                                <div style="display:flex;align-items:center;gap:10px">
+                                    <div style="width:32px;height:32px;border-radius:50%;background:var(--p-light);color:var(--p);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">
+                                        {{ (u.display_name or u.username)[0].upper() }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-600">{{ u.display_name or u.username }}</div>
+                                        <div class="text-muted text-sm">@{{ u.username }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if u.role == 'admin' %}
+                                <span class="badge badge-admin">Администратор</span>
+                                {% else %}
+                                <span class="badge badge-manager">Менеджер</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted text-sm">{{ u.last_login_at | dt }}</td>
+                            <td class="text-muted text-sm">{{ u.created_at | date }}</td>
+                            <td>
+                                {% if u.is_active %}
+                                <span class="badge badge-active">Активен</span>
+                                {% else %}
+                                <span class="badge badge-inactive">Отключён</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.role != 'admin' %}
+                                <div style="display:flex;gap:6px">
+                                    <!-- Reset password -->
+                                    <form method="post" action="/users/{{ u.id }}/reset-password"
+                                          onsubmit="event.preventDefault(); const p=prompt('Новый пароль для @{{ u.username }}:'); if(p){this.new_password.value=p;this.submit();}">
+                                        <input type="hidden" name="new_password" value="">
+                                        <button class="btn-icon" title="Сбросить пароль">
+                                            <i class="bi bi-key"></i>
+                                        </button>
+                                    </form>
+                                    <!-- Toggle active -->
+                                    <form method="post" action="/users/{{ u.id }}/toggle">
+                                        <button class="btn-icon" title="{{ 'Отключить' if u.is_active else 'Активировать' }}">
+                                            <i class="bi bi-{{ 'pause-circle' if u.is_active else 'play-circle' }}"></i>
+                                        </button>
+                                    </form>
+                                    <!-- Delete -->
+                                    <form method="post" action="/users/{{ u.id }}/delete"
+                                          onsubmit="return confirm('Удалить пользователя @{{ u.username }}?')">
+                                        <button class="btn-icon" title="Удалить">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                <span class="text-muted text-sm">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col col-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-person-plus"></i>Добавить сотрудника</div>
+            <div class="card-body">
+                <form method="post" action="/users/add">
+                    <div class="form-group">
+                        <label>Имя (отображаемое)</label>
+                        <input type="text" name="display_name" placeholder="Иван Петров">
+                    </div>
+                    <div class="form-group">
+                        <label>Логин</label>
+                        <input type="text" name="username" placeholder="ivan.petrov" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль</label>
+                        <input type="password" name="password" placeholder="Минимум 6 символов" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Роль</label>
+                        <select name="role">
+                            <option value="manager">Менеджер</option>
+                            <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">
+                        <i class="bi bi-plus"></i>Создать
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+            <div class="card-header"><i class="bi bi-info-circle"></i>Права доступа</div>
+            <div class="card-body">
+                <div style="margin-bottom:12px">
+                    <div class="fw-600" style="font-size:13px;margin-bottom:6px">
+                        <span class="badge badge-admin">Администратор</span>
+                    </div>
+                    <ul style="font-size:12px;color:var(--text2);padding-left:16px;line-height:1.8">
+                        <li>Все заявки: просмотр, подтверждение, отклонение</li>
+                        <li>Управление фабриками</li>
+                        <li>Управление сотрудниками</li>
+                        <li>Лог активности</li>
+                        <li>Настройки сайта</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="fw-600" style="font-size:13px;margin-bottom:6px">
+                        <span class="badge badge-manager">Менеджер</span>
+                    </div>
+                    <ul style="font-size:12px;color:var(--text2);padding-left:16px;line-height:1.8">
+                        <li>Просмотр заявок</li>
+                        <li>Отклонение заявок</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

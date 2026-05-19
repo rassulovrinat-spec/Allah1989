@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% set active_page = 'settings' %}
+{% block title %}Настройки{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Настройки</div>
+        <div class="page-subtitle">Внешний вид и параметры сайта</div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col col-8">
+        <form method="post" action="/settings">
+            <!-- Theme -->
+            <div class="card" style="margin-bottom:16px">
+                <div class="card-header"><i class="bi bi-moon-stars"></i>Тема оформления</div>
+                <div class="card-body">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap">
+                        <label style="flex:1;min-width:150px;cursor:pointer">
+                            <input type="radio" name="theme" value="light"
+                                   {{ 'checked' if settings.theme == 'light' else '' }}
+                                   style="display:none">
+                            <div class="theme-card {% if settings.theme == 'light' %}selected{% endif %}"
+                                 style="border:2px solid {% if settings.theme == 'light' %}var(--p){% else %}var(--border){% endif %};border-radius:10px;padding:16px;text-align:center;background:white;cursor:pointer;transition:all .15s"
+                                 onclick="this.parentElement.querySelector('input').checked=true;document.querySelectorAll('.theme-card').forEach(c=>c.style.borderColor='var(--border)');this.style.borderColor='var(--p)'">
+                                <div style="width:100%;height:48px;background:#F1F5F9;border-radius:6px;margin-bottom:10px;border:1px solid #E2E8F0"></div>
+                                <div style="font-size:13px;font-weight:600;color:#0F172A">Светлая</div>
+                            </div>
+                        </label>
+                        <label style="flex:1;min-width:150px;cursor:pointer">
+                            <input type="radio" name="theme" value="dark"
+                                   {{ 'checked' if settings.theme == 'dark' else '' }}
+                                   style="display:none">
+                            <div class="theme-card {% if settings.theme == 'dark' %}selected{% endif %}"
+                                 style="border:2px solid {% if settings.theme == 'dark' %}var(--p){% else %}var(--border){% endif %};border-radius:10px;padding:16px;text-align:center;background:white;cursor:pointer;transition:all .15s"
+                                 onclick="this.parentElement.querySelector('input').checked=true;document.querySelectorAll('.theme-card').forEach(c=>c.style.borderColor='var(--border)');this.style.borderColor='var(--p)'">
+                                <div style="width:100%;height:48px;background:#0F172A;border-radius:6px;margin-bottom:10px;border:1px solid #334155"></div>
+                                <div style="font-size:13px;font-weight:600;color:#0F172A">Тёмная</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Primary color -->
+            <div class="card" style="margin-bottom:24px">
+                <div class="card-header"><i class="bi bi-palette"></i>Акцентный цвет</div>
+                <div class="card-body">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        {% set colors = [
+                            ('indigo', '#4F46E5', 'Индиго'),
+                            ('blue',   '#2563EB', 'Синий'),
+                            ('green',  '#059669', 'Зелёный'),
+                            ('orange', '#D97706', 'Янтарный'),
+                            ('rose',   '#E11D48', 'Розовый'),
+                        ] %}
+                        {% for value, hex, label in colors %}
+                        <label style="cursor:pointer;text-align:center">
+                            <input type="radio" name="primary_color" value="{{ value }}"
+                                   {{ 'checked' if settings.primary_color == value else '' }}
+                                   style="display:none">
+                            <div style="width:44px;height:44px;border-radius:50%;background:{{ hex }};border:3px solid {% if settings.primary_color == value %}#0F172A{% else %}transparent{% endif %};cursor:pointer;transition:all .15s;margin:0 auto 4px"
+                                 onclick="document.querySelectorAll('[name=primary_color]').forEach(r=>r.checked=false);this.parentElement.querySelector('input').checked=true;document.querySelectorAll('.color-dot').forEach(d=>d.style.borderColor='transparent');this.style.borderColor='#0F172A'" class="color-dot"></div>
+                            <div style="font-size:11px;color:var(--text2)">{{ label }}</div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg"></i>Сохранить настройки
+            </button>
+        </form>
+    </div>
+
+    <div class="col col-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-eye"></i>Предпросмотр</div>
+            <div class="card-body">
+                <p class="text-muted text-sm" style="margin-bottom:12px">Изменения применятся ко всем пользователям после сохранения.</p>
+                <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--border)">
+                    <div style="background:var(--surface);border-radius:6px;padding:10px;border:1px solid var(--border)">
+                        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">Пример карточки</div>
+                        <span class="badge badge-new">Новая</span>
+                        <span class="badge badge-accepted" style="margin-left:4px">Принята</span>
+                    </div>
+                    <div style="margin-top:8px;background:var(--p);color:white;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;display:inline-block">
+                        Кнопка
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

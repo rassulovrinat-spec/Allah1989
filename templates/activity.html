@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set active_page = 'activity' %}
+{% block title %}Активность{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Журнал активности</div>
+        <div class="page-subtitle">Последние 500 событий</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Время</th>
+                    <th>Пользователь</th>
+                    <th>Роль</th>
+                    <th>Действие</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in logs %}
+                <tr>
+                    <td class="text-sm text-muted" style="white-space:nowrap">{{ entry.created_at | dt }}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0">
+                                {{ entry.username[0].upper() }}
+                            </div>
+                            <span class="fw-600 text-sm">{{ entry.username }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if entry.role == 'admin' %}
+                        <span class="badge badge-admin">Администратор</span>
+                        {% else %}
+                        <span class="badge badge-manager">Менеджер</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-sm">{{ entry.action }}</td>
+                    <td class="text-muted text-sm">{{ entry.ip_address or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty">
+                            <i class="bi bi-activity"></i>
+                            <p>Событий пока нет</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

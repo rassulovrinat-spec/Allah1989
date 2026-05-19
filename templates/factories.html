@@ -1,21 +1,25 @@
 {% extends "base.html" %}
+{% set active_page = 'factories' %}
 {% block title %}Фабрики{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h5 class="mb-0 fw-bold"><i class="bi bi-building me-2"></i>Фабрики</h5>
+<div class="page-header">
+    <div>
+        <div class="page-title">Фабрики</div>
+        <div class="page-subtitle">{{ factories | length }} фабрик в системе</div>
+    </div>
 </div>
 
-<div class="row g-4">
-    <div class="col-lg-8">
+<div class="row">
+    <div class="col col-8">
         <div class="card">
-            <div class="table-responsive">
-                <table class="table table-hover table-bordered mb-0 align-middle">
+            <div class="table-wrap">
+                <table>
                     <thead>
                         <tr>
                             <th>#</th>
                             <th>Название</th>
-                            <th>Email</th>
+                            <th>Email для заявок</th>
                             <th>Добавлена</th>
                             <th></th>
                         </tr>
@@ -23,20 +27,27 @@
                     <tbody>
                         {% for f in factories %}
                         <tr>
-                            <td class="text-muted small">{{ f.id }}</td>
-                            <td class="fw-semibold">{{ f.name }}</td>
-                            <td>{{ f.email }}</td>
-                            <td class="text-muted small">{{ f.created_at | dt }}</td>
+                            <td class="text-muted text-sm">{{ f.id }}</td>
+                            <td class="fw-600">{{ f.name }}</td>
+                            <td class="text-sm">{{ f.email }}</td>
+                            <td class="text-muted text-sm">{{ f.created_at | date }}</td>
                             <td>
-                                <form method="post" action="/factories/{{ f.id }}/delete" class="d-inline"
-                                      onsubmit="return confirm('Удалить фабрику {{ f.name }}?')">
-                                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                <form method="post" action="/factories/{{ f.id }}/delete"
+                                      onsubmit="return confirm('Удалить фабрику «{{ f.name }}»?')">
+                                    <button class="btn-icon" title="Удалить">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
                                 </form>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4">Фабрик нет</td>
+                            <td colspan="5">
+                                <div class="empty">
+                                    <i class="bi bi-building"></i>
+                                    <p>Фабрик нет</p>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -45,20 +56,22 @@
         </div>
     </div>
 
-    <div class="col-lg-4">
+    <div class="col col-4">
         <div class="card">
-            <div class="card-header bg-white fw-semibold"><i class="bi bi-plus-circle me-2"></i>Добавить фабрику</div>
+            <div class="card-header"><i class="bi bi-plus-circle"></i>Добавить фабрику</div>
             <div class="card-body">
                 <form method="post" action="/factories/add">
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Название</label>
-                        <input type="text" name="name" class="form-control" placeholder="АО МебельПром" required>
+                    <div class="form-group">
+                        <label>Название</label>
+                        <input type="text" name="name" placeholder="АО МебельПром" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Email для заявок</label>
-                        <input type="email" name="email" class="form-control" placeholder="orders@factory.ru" required>
+                    <div class="form-group">
+                        <label>Email для заявок</label>
+                        <input type="email" name="email" placeholder="orders@factory.ru" required>
                     </div>
-                    <button type="submit" class="btn btn-dark w-100">Добавить</button>
+                    <button type="submit" class="btn btn-primary" style="width:100%">
+                        <i class="bi bi-plus"></i>Добавить
+                    </button>
                 </form>
             </div>
         </div>

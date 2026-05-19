@@ -1,8 +1,21 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
 Base = declarative_base()
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(300), nullable=False)
+    display_name = Column(String(200))
+    role = Column(String(20), default="manager")  # admin / manager
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login_at = Column(DateTime)
 
 
 class Factory(Base):
@@ -45,6 +58,25 @@ class Order(Base):
     sent_to_factory_at = Column(DateTime)
     factory_confirmed_at = Column(DateTime)
     confirmation_token = Column(String(36), unique=True)
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(100), nullable=False)
+    role = Column(String(20))
+    action = Column(String(500), nullable=False)
+    ip_address = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SiteSettings(Base):
+    __tablename__ = "site_settings"
+
+    id = Column(Integer, primary_key=True)
+    theme = Column(String(20), default="light")
+    primary_color = Column(String(20), default="indigo")
 
 
 class OrderStatus:
