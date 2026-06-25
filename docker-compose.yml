@@ -1,0 +1,35 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/orders.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - db_data:/app/data
+      - uploads:/app/static/uploads
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/login')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: python3 -m uvicorn app.server:app --host 0.0.0.0 --port 8000
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/orders.db
+    volumes:
+      - db_data:/app/data
+    depends_on:
+      web:
+        condition: service_healthy
+    command: python3 run_bot.py
+
+volumes:
+  db_data:
+  uploads:
