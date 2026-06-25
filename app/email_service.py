@@ -38,6 +38,8 @@ def send_factory_email(order, confirm_url: str):
         ("Комплектация", order.configuration or "—"),
         ("Количество", str(order.quantity)),
         ("Срок поставки", order.delivery_date or "—"),
+        ("Дата возможной отгрузки", order.shipment_date or "—"),
+        ("Адрес доставки", order.delivery_address_full or "—"),
         ("Комментарии", order.comments or "—"),
     ]
     rows_html = "".join(

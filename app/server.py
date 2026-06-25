@@ -13,7 +13,7 @@ load_dotenv()
 
 from app.database import get_db, init_db
 from app.models import (Order, Factory, OrderStatus, User, ActivityLog,
-                        SiteSettings, PriceBatch, PriceItem, OrderAttachment)
+                        SiteSettings, PriceBatch, PriceItem, OrderAttachment, OrderHistory)
 from app.auth import verify_password, hash_password, make_token, decode_token
 from app.email_service import send_factory_email, send_admin_notification
 from app.price_parser import parse_price_file
@@ -50,9 +50,15 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 STATUS_LABELS = {
-    "new": "Новая", "sent_to_factory": "Отправлено",
-    "accepted": "Принято", "rejected": "Отклонено",
+    "new": "Новая",
+    "sent_to_factory": "Отправлено",
+    "accepted": "Принято",
+    "shipped": "Отгружено",
+    "delivered": "Доставлено",
+    "rejected": "Отклонено",
 }
+
+PAYMENT_METHODS = ["Наличные", "Безналичный расчёт", "Перевод", "Рассрочка", "Кредит"]
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -86,6 +92,23 @@ def log(db: Session, user: User, action: str, request: Request = None):
     db.add(ActivityLog(username=user.username, role=user.role,
                        action=action, ip_address=ip))
     db.commit()
+
+
+def log_history(db: Session, order_id: int, username: str,
+                field: str = None, old_value=None, new_value=None, comment: str = None):
+    db.add(OrderHistory(order_id=order_id, username=username, field=field,
+                        old_value=str(old_value) if old_value is not None else None,
+                        new_value=str(new_value) if new_value is not None else None,
+                        comment=comment))
+
+
+def _parse_float(val: str):
+    if not val:
+        return None
+    try:
+        return float(str(val).replace(" ", "").replace(",", "."))
+    except ValueError:
+        return None
 
 
 @app.on_event("startup")
@@ -197,9 +220,10 @@ def export_orders(request: Request, status: str = None, db: Session = Depends(ge
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Заявки"
-    headers = ["#", "Дата", "Клиент", "Телефон", "Email", "Фабрика",
+    headers = ["#", "Дата", "Договор", "Клиент", "Телефон", "Email", "Фабрика",
                "Категория", "Модель", "Размеры", "Материал", "Цвет",
-               "Кол-во", "Срок поставки", "Сумма", "Менеджер", "Статус", "Принято фабрикой"]
+               "Кол-во", "Срок поставки", "Дата отгрузки", "Способ оплаты",
+               "Аванс", "Остаток", "Сумма", "Менеджер", "Статус", "Принято фабрикой"]
     ws.append(headers)
     header_fill = PatternFill("solid", fgColor="4F46E5")
     header_font = Font(color="FFFFFF", bold=True)
@@ -213,10 +237,13 @@ def export_orders(request: Request, status: str = None, db: Session = Depends(ge
         ws.append([
             o.id,
             o.created_at.strftime("%d.%m.%Y %H:%M") if o.created_at else "",
+            o.contract_number or "",
             o.client_name, o.client_phone or "", o.client_email or "",
             o.factory_name, o.category, o.model,
             o.dimensions or "", o.material or "", o.color or "",
-            o.quantity, o.delivery_date or "",
+            o.quantity, o.delivery_date or "", o.shipment_date or "",
+            o.payment_method or "",
+            o.advance_payment or "", o.balance_payment or "",
             o.order_amount or "",
             o.manager_username or "",
             status_map.get(o.status, o.status),
@@ -231,6 +258,99 @@ def export_orders(request: Request, status: str = None, db: Session = Depends(ge
     return StreamingResponse(buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=orders.xlsx"})
+
+
+# ── create order (web form) ───────────────────────────────────────────────────
+
+@app.get("/orders/new", response_class=HTMLResponse)
+def order_new_page(request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    factories = db.query(Factory).order_by(Factory.name).all()
+    categories = ["Диваны", "Кресла", "Кровати", "Шкафы", "Столы", "Стулья", "Тумбы", "Другое"]
+    return templates.TemplateResponse("order_form.html", ctx(request, db, user,
+        order=None, factories=factories, categories=categories,
+        payment_methods=PAYMENT_METHODS))
+
+
+@app.post("/orders/new")
+def order_new_submit(
+    request: Request,
+    client_name: str = Form(...),
+    client_phone: str = Form(""),
+    client_phone_name: str = Form(""),
+    client_phone2: str = Form(""),
+    client_phone2_name: str = Form(""),
+    client_email: str = Form(""),
+    factory_id: int = Form(...),
+    category: str = Form(...),
+    model: str = Form(...),
+    contract_number: str = Form(""),
+    contract_date: str = Form(""),
+    dimensions: str = Form(""),
+    material: str = Form(""),
+    color: str = Form(""),
+    configuration: str = Form(""),
+    quantity: int = Form(1),
+    delivery_date: str = Form(""),
+    shipment_date: str = Form(""),
+    payment_method: str = Form(""),
+    advance_payment: str = Form(""),
+    balance_payment: str = Form(""),
+    delivery_region: str = Form(""),
+    delivery_city: str = Form(""),
+    delivery_street: str = Form(""),
+    delivery_house: str = Form(""),
+    delivery_corpus: str = Form(""),
+    delivery_apartment: str = Form(""),
+    delivery_address_full: str = Form(""),
+    comments: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    factory = db.query(Factory).filter(Factory.id == factory_id).first()
+    if not factory:
+        return RedirectResponse("/orders/new?err=Фабрика не найдена", 303)
+    adv = _parse_float(advance_payment)
+    bal = _parse_float(balance_payment)
+    total = (adv or 0) + (bal or 0) or None
+    order = Order(
+        client_name=client_name.strip(),
+        client_phone=client_phone.strip() or None,
+        client_phone_name=client_phone_name.strip() or None,
+        client_phone2=client_phone2.strip() or None,
+        client_phone2_name=client_phone2_name.strip() or None,
+        client_email=client_email.strip() or None,
+        factory_name=factory.name, factory_email=factory.email,
+        category=category, model=model.strip(),
+        contract_number=contract_number.strip() or None,
+        contract_date=contract_date.strip() or None,
+        dimensions=dimensions.strip() or None,
+        material=material.strip() or None,
+        color=color.strip() or None,
+        configuration=configuration.strip() or None,
+        quantity=quantity,
+        delivery_date=delivery_date.strip() or None,
+        shipment_date=shipment_date.strip() or None,
+        payment_method=payment_method.strip() or None,
+        advance_payment=adv, balance_payment=bal, order_amount=total,
+        delivery_region=delivery_region.strip() or None,
+        delivery_city=delivery_city.strip() or None,
+        delivery_street=delivery_street.strip() or None,
+        delivery_house=delivery_house.strip() or None,
+        delivery_corpus=delivery_corpus.strip() or None,
+        delivery_apartment=delivery_apartment.strip() or None,
+        delivery_address_full=delivery_address_full.strip() or None,
+        manager_id=user.id, manager_username=user.username,
+    )
+    db.add(order); db.commit(); db.refresh(order)
+    log_history(db, order.id, user.username, comment="Заявка создана через веб-форму")
+    db.commit()
+    log(db, user, f"Создана заявка №{order.id} — {client_name}", request)
+    return RedirectResponse(f"/orders/{order.id}?msg=Заявка создана", 303)
 
 
 @app.get("/orders/{order_id}", response_class=HTMLResponse)
@@ -259,6 +379,8 @@ def confirm_order(order_id: int, request: Request, db: Session = Depends(get_db)
     order.confirmation_token = str(uuid.uuid4())
     order.status = OrderStatus.sent_to_factory
     order.sent_to_factory_at = datetime.utcnow()
+    log_history(db, order.id, user.username, field="status",
+                old_value="new", new_value="sent_to_factory")
     db.commit()
     confirm_url = f"{SITE_URL}/confirm/{order.confirmation_token}"
     try:
@@ -279,8 +401,11 @@ def reject_order(order_id: int, request: Request, reason: str = Form(""),
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order or order.status not in [OrderStatus.new, OrderStatus.sent_to_factory]:
         return RedirectResponse(f"/orders/{order_id}?err=Нельзя отклонить", 303)
+    old = order.status
     order.status = OrderStatus.rejected
     order.rejection_reason = reason or None
+    log_history(db, order.id, user.username, field="status",
+                old_value=old, new_value="rejected", comment=reason or None)
     db.commit()
     log(db, user, f"Отклонена заявка №{order_id}", request)
     return RedirectResponse(f"/orders/{order_id}?msg=Заявка отклонена", 303)
@@ -325,6 +450,405 @@ def download_attachment(order_id: int, filename: str, request: Request,
     return FileResponse(path, filename=att.original_name or filename)
 
 
+# ── edit order ────────────────────────────────────────────────────────────────
+
+@app.get("/orders/{order_id}/edit", response_class=HTMLResponse)
+def order_edit_page(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(404)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse(f"/orders/{order_id}?err=Нет доступа", 303)
+    factories = db.query(Factory).order_by(Factory.name).all()
+    categories = ["Диваны", "Кресла", "Кровати", "Шкафы", "Столы", "Стулья", "Тумбы", "Другое"]
+    return templates.TemplateResponse("order_form.html", ctx(request, db, user,
+        order=order, factories=factories, categories=categories,
+        payment_methods=PAYMENT_METHODS))
+
+
+@app.post("/orders/{order_id}/edit")
+def order_edit_submit(
+    order_id: int, request: Request,
+    client_name: str = Form(...),
+    client_phone: str = Form(""),
+    client_phone_name: str = Form(""),
+    client_phone2: str = Form(""),
+    client_phone2_name: str = Form(""),
+    client_email: str = Form(""),
+    factory_id: int = Form(...),
+    category: str = Form(...),
+    model: str = Form(...),
+    contract_number: str = Form(""),
+    contract_date: str = Form(""),
+    dimensions: str = Form(""),
+    material: str = Form(""),
+    color: str = Form(""),
+    configuration: str = Form(""),
+    quantity: int = Form(1),
+    delivery_date: str = Form(""),
+    shipment_date: str = Form(""),
+    payment_method: str = Form(""),
+    advance_payment: str = Form(""),
+    balance_payment: str = Form(""),
+    delivery_region: str = Form(""),
+    delivery_city: str = Form(""),
+    delivery_street: str = Form(""),
+    delivery_house: str = Form(""),
+    delivery_corpus: str = Form(""),
+    delivery_apartment: str = Form(""),
+    delivery_address_full: str = Form(""),
+    status: str = Form(""),
+    rejection_reason: str = Form(""),
+    comments: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(404)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse(f"/orders/{order_id}?err=Нет доступа", 303)
+    factory = db.query(Factory).filter(Factory.id == factory_id).first()
+    if not factory:
+        return RedirectResponse(f"/orders/{order_id}/edit?err=Фабрика не найдена", 303)
+
+    adv = _parse_float(advance_payment)
+    bal = _parse_float(balance_payment)
+    total = (adv or 0) + (bal or 0) or None
+
+    # Фиксируем изменения в истории
+    changes = {
+        "client_name": (order.client_name, client_name.strip()),
+        "model": (order.model, model.strip()),
+        "advance_payment": (order.advance_payment, adv),
+        "balance_payment": (order.balance_payment, bal),
+        "order_amount": (order.order_amount, total),
+        "payment_method": (order.payment_method, payment_method.strip() or None),
+        "shipment_date": (order.shipment_date, shipment_date.strip() or None),
+        "contract_number": (order.contract_number, contract_number.strip() or None),
+    }
+    for field, (old, new) in changes.items():
+        if str(old or "") != str(new or ""):
+            log_history(db, order.id, user.username, field=field,
+                        old_value=old, new_value=new)
+
+    order.client_name = client_name.strip()
+    order.client_phone = client_phone.strip() or None
+    order.client_phone_name = client_phone_name.strip() or None
+    order.client_phone2 = client_phone2.strip() or None
+    order.client_phone2_name = client_phone2_name.strip() or None
+    order.client_email = client_email.strip() or None
+    order.factory_name = factory.name
+    order.factory_email = factory.email
+    order.category = category
+    order.model = model.strip()
+    order.contract_number = contract_number.strip() or None
+    order.contract_date = contract_date.strip() or None
+    order.dimensions = dimensions.strip() or None
+    order.material = material.strip() or None
+    order.color = color.strip() or None
+    order.configuration = configuration.strip() or None
+    order.quantity = quantity
+    order.delivery_date = delivery_date.strip() or None
+    order.shipment_date = shipment_date.strip() or None
+    order.payment_method = payment_method.strip() or None
+    order.advance_payment = adv
+    order.balance_payment = bal
+    order.order_amount = total
+    order.comments = comments.strip() or None
+    order.delivery_region = delivery_region.strip() or None
+    order.delivery_city = delivery_city.strip() or None
+    order.delivery_street = delivery_street.strip() or None
+    order.delivery_house = delivery_house.strip() or None
+    order.delivery_corpus = delivery_corpus.strip() or None
+    order.delivery_apartment = delivery_apartment.strip() or None
+    order.delivery_address_full = delivery_address_full.strip() or None
+    valid_statuses = ["new", "sent_to_factory", "accepted", "shipped", "delivered", "rejected"]
+    if status and status in valid_statuses:
+        if order.status != status:
+            log_history(db, order.id, user.username, field="status",
+                        old_value=order.status, new_value=status)
+        order.status = status
+        order.rejection_reason = rejection_reason.strip() or None if status == "rejected" else order.rejection_reason
+    db.commit()
+    log(db, user, f"Отредактирована заявка №{order_id}", request)
+    return RedirectResponse(f"/orders/{order_id}?msg=Заявка обновлена", 303)
+
+
+# ── status: shipped / delivered ───────────────────────────────────────────────
+
+@app.post("/orders/{order_id}/ship")
+def ship_order(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or order.status != OrderStatus.accepted:
+        return RedirectResponse(f"/orders/{order_id}?err=Нельзя отгрузить", 303)
+    old = order.status
+    order.status = OrderStatus.shipped
+    log_history(db, order.id, user.username, field="status", old_value=old, new_value="shipped")
+    db.commit()
+    # Уведомить менеджера
+    if order.manager_id:
+        mgr = db.query(User).filter(User.id == order.manager_id).first()
+        if mgr and mgr.telegram_id:
+            send_telegram_message(mgr.telegram_id,
+                f"🚚 *Заявка №{order.id} отгружена!*\nКлиент: {order.client_name}\nМодель: {order.model}")
+    log(db, user, f"Заявка №{order_id} отмечена как Отгружено", request)
+    return RedirectResponse(f"/orders/{order_id}?msg=Статус: Отгружено", 303)
+
+
+@app.post("/orders/{order_id}/deliver")
+def deliver_order(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or order.status != OrderStatus.shipped:
+        return RedirectResponse(f"/orders/{order_id}?err=Нельзя доставить", 303)
+    old = order.status
+    order.status = OrderStatus.delivered
+    log_history(db, order.id, user.username, field="status", old_value=old, new_value="delivered")
+    db.commit()
+    if order.manager_id:
+        mgr = db.query(User).filter(User.id == order.manager_id).first()
+        if mgr and mgr.telegram_id:
+            send_telegram_message(mgr.telegram_id,
+                f"✅ *Заявка №{order.id} доставлена клиенту!*\nКлиент: {order.client_name}")
+    log(db, user, f"Заявка №{order_id} отмечена как Доставлено", request)
+    return RedirectResponse(f"/orders/{order_id}?msg=Статус: Доставлено", 303)
+
+
+# ── PDF генерация ─────────────────────────────────────────────────────────────
+
+@app.get("/orders/{order_id}/pdf")
+def order_pdf(order_id: int, request: Request, db: Session = Depends(get_db)):
+    from fastapi.responses import StreamingResponse
+    import io
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(404)
+    pdf_bytes = _generate_order_pdf(order)
+    log(db, user, f"Сгенерирован PDF для заявки №{order_id}", request)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=order_{order_id}.pdf"}
+    )
+
+
+def _generate_order_pdf(order) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    import io
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+
+    # Шрифт с поддержкой кириллицы
+    font_paths = [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    font_name = "Helvetica"
+    for fp in font_paths:
+        if os.path.exists(fp):
+            try:
+                pdfmetrics.registerFont(TTFont("CustomFont", fp))
+                pdfmetrics.registerFont(TTFont("CustomFontB", fp.replace(".ttf", " Bold.ttf") if os.path.exists(fp.replace(".ttf", " Bold.ttf")) else fp))
+                font_name = "CustomFont"
+                break
+            except Exception:
+                continue
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("title", fontName=font_name, fontSize=16, leading=20,
+                                  spaceAfter=6, textColor=colors.HexColor("#0F172A"))
+    sub_style = ParagraphStyle("sub", fontName=font_name, fontSize=10,
+                                textColor=colors.HexColor("#64748B"), spaceAfter=16)
+    label_style = ParagraphStyle("label", fontName=font_name, fontSize=9,
+                                  textColor=colors.HexColor("#64748B"))
+    value_style = ParagraphStyle("value", fontName=font_name, fontSize=10,
+                                  textColor=colors.HexColor("#0F172A"))
+
+    status_map = {"new": "Новая", "sent_to_factory": "Отправлено", "accepted": "Принято",
+                  "shipped": "Отгружено", "delivered": "Доставлено", "rejected": "Отклонено"}
+
+    elements = []
+
+    # Заголовок
+    elements.append(Paragraph(f"Заявка №{order.id}", title_style))
+    date_str = order.created_at.strftime("%d.%m.%Y") if order.created_at else "—"
+    elements.append(Paragraph(f"Дата создания: {date_str}  |  Статус: {status_map.get(order.status, order.status)}", sub_style))
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#E2E8F0")))
+    elements.append(Spacer(1, 0.4*cm))
+
+    def row(label, value):
+        return [Paragraph(label, label_style), Paragraph(str(value or "—"), value_style)]
+
+    # Таблица данных
+    data = [
+        row("Клиент", order.client_name),
+        row("Телефон", order.client_phone),
+        row("Email клиента", order.client_email),
+        row("Фабрика", order.factory_name),
+        row("Номер договора", order.contract_number),
+        row("Категория", order.category),
+        row("Модель / Артикул", order.model),
+        row("Размеры", order.dimensions),
+        row("Материал / Обивка", order.material),
+        row("Цвет", order.color),
+        row("Комплектация", order.configuration),
+        row("Количество", f"{order.quantity} шт."),
+        row("Срок поставки", order.delivery_date),
+        row("Дата возможной отгрузки", order.shipment_date),
+        row("Способ оплаты", order.payment_method),
+    ]
+    if order.advance_payment:
+        data.append(row("Аванс", f"{order.advance_payment:,.0f} ₽".replace(",", " ")))
+    if order.balance_payment:
+        data.append(row("Остаток", f"{order.balance_payment:,.0f} ₽".replace(",", " ")))
+    if order.order_amount:
+        data.append(row("ИТОГО", f"{order.order_amount:,.0f} ₽".replace(",", " ")))
+    if order.comments:
+        data.append(row("Комментарии", order.comments))
+    if order.manager_username:
+        data.append(row("Менеджер", order.manager_username))
+
+    t = Table(data, colWidths=[5*cm, 12*cm])
+    t.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (0, -1), 0),
+        # Выделяем итого
+        ("FONTNAME", (0, -1 if order.order_amount else -2), (-1, -1 if order.order_amount else -2), font_name),
+        ("TEXTCOLOR", (1, -1 if order.order_amount else -2), (1, -1 if order.order_amount else -2), colors.HexColor("#059669")),
+        ("FONTSIZE", (0, -1 if order.order_amount else -2), (-1, -1 if order.order_amount else -2), 11),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 1*cm))
+
+    # Подписи
+    sig_data = [["Менеджер: _____________________", "М.П.", "Клиент: _____________________"]]
+    sig_t = Table(sig_data, colWidths=[7*cm, 3*cm, 7*cm])
+    sig_t.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.HexColor("#94A3B8")),
+        ("ALIGN", (1, 0), (1, 0), "CENTER"),
+    ]))
+    elements.append(sig_t)
+
+    doc.build(elements)
+    buf.seek(0)
+    return buf.read()
+
+
+# ── История заявки ────────────────────────────────────────────────────────────
+
+@app.get("/orders/{order_id}/history")
+def order_history(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    history = db.query(OrderHistory).filter(
+        OrderHistory.order_id == order_id
+    ).order_by(OrderHistory.created_at.asc()).all()
+    return [{"id": h.id, "username": h.username, "field": h.field,
+             "old_value": h.old_value, "new_value": h.new_value,
+             "comment": h.comment,
+             "created_at": h.created_at.strftime("%d.%m.%Y %H:%M") if h.created_at else ""}
+            for h in history]
+
+
+# ── API: поиск по прайсу ──────────────────────────────────────────────────────
+
+@app.get("/api/price-search")
+def price_search(q: str = "", db: Session = Depends(get_db)):
+    if len(q) < 2:
+        return []
+    like = f"%{q}%"
+    items = db.query(PriceItem).filter(
+        PriceItem.name.ilike(like) | PriceItem.article.ilike(like)
+    ).limit(20).all()
+    return [{"id": i.id, "name": i.name, "article": i.article or "",
+             "category": i.category or "", "base_price": i.base_price,
+             "markup_price": i.markup_price} for i in items]
+
+
+# ── Дашборд менеджера ─────────────────────────────────────────────────────────
+
+@app.get("/my-stats", response_class=HTMLResponse)
+def my_stats(request: Request, db: Session = Depends(get_db)):
+    import calendar
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+
+    all_orders = db.query(Order).filter(Order.manager_username == user.username).all()
+    month_orders = [o for o in all_orders
+                    if o.factory_confirmed_at and o.factory_confirmed_at >= month_start
+                    and o.status in ("accepted", "shipped", "delivered")]
+    total_orders = [o for o in all_orders if o.status in ("accepted", "shipped", "delivered")]
+
+    month_revenue = sum(o.order_amount or 0 for o in month_orders)
+    total_revenue = sum(o.order_amount or 0 for o in total_orders)
+
+    month_names = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]
+    monthly_data = []
+    for i in range(5, -1, -1):
+        m = (now.month - 1 - i) % 12 + 1
+        y = now.year + ((now.month - 1 - i) // 12)
+        first = datetime(y, m, 1)
+        last_day = calendar.monthrange(y, m)[1]
+        last = datetime(y, m, last_day, 23, 59, 59)
+        mo = [o for o in all_orders
+              if o.factory_confirmed_at and first <= o.factory_confirmed_at <= last
+              and o.status in ("accepted", "shipped", "delivered")]
+        total = sum(o.order_amount or 0 for o in mo)
+        monthly_data.append({
+            "label": f"{month_names[m-1]} {str(y)[2:]}",
+            "total": round(total),
+            "commission": round(total * COMMISSION_RATE),
+            "count": len(mo),
+        })
+
+    counts = {s: sum(1 for o in all_orders if o.status == s) for s in STATUS_LABELS}
+    recent = sorted(all_orders, key=lambda o: o.created_at or datetime.min, reverse=True)[:10]
+
+    return templates.TemplateResponse("my_stats.html", ctx(request, db, user,
+        month_revenue=month_revenue, total_revenue=total_revenue,
+        month_commission=round(month_revenue * COMMISSION_RATE, 2),
+        total_commission=round(total_revenue * COMMISSION_RATE, 2),
+        month_count=len(month_orders), total_count=len(total_orders),
+        monthly_data=monthly_data, counts=counts, recent=recent,
+        commission_rate=int(COMMISSION_RATE * 100)))
+
+
 # ── factory confirmation (public) ─────────────────────────────────────────────
 
 @app.get("/confirm/{token}", response_class=HTMLResponse)
@@ -339,6 +863,8 @@ def factory_confirm(token: str, request: Request, db: Session = Depends(get_db))
              "message": f"Заявка №{order.id} уже подтверждена."})
     order.status = OrderStatus.accepted
     order.factory_confirmed_at = datetime.utcnow()
+    log_history(db, order.id, "factory", field="status",
+                old_value="sent_to_factory", new_value="accepted")
     db.commit()
     try:
         send_admin_notification(order)
@@ -495,6 +1021,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
     # Динамика за 6 месяцев
     now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+    month_revenue = sum(
+        o.order_amount or 0 for o in db.query(Order).filter(
+            Order.status == "accepted",
+            Order.factory_confirmed_at >= month_start,
+        ).all()
+    )
     monthly_data = []
     month_names = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"]
     for i in range(5, -1, -1):
@@ -531,8 +1064,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         Order.sent_to_factory_at <= datetime.utcnow() - timedelta(days=3)
     ).all()
     return templates.TemplateResponse("dashboard.html", ctx(request, db, user,
-        counts=counts, total_revenue=total_revenue, monthly_data=monthly_data,
-        mgr_rows=mgr_rows, overdue=overdue, commission_rate=int(COMMISSION_RATE * 100)))
+        counts=counts, total_revenue=total_revenue, month_revenue=month_revenue,
+        monthly_data=monthly_data, mgr_rows=mgr_rows, overdue=overdue,
+        commission_rate=int(COMMISSION_RATE * 100)))
 
 
 @app.post("/admin/send-reminders")
@@ -751,6 +1285,9 @@ async def create_order_api(request: Request, db: Session = Depends(get_db)):
     factory = db.query(Factory).filter(Factory.name == data.get("factory_name")).first()
     if not factory:
         return {"ok": False, "error": "Фабрика не найдена"}
+    advance = data.get("advance_payment") or 0
+    balance = data.get("balance_payment") or 0
+    total = advance + balance if (advance or balance) else data.get("order_amount")
     order = Order(
         client_name=data["client_name"],
         client_phone=data.get("client_phone"),
@@ -762,7 +1299,12 @@ async def create_order_api(request: Request, db: Session = Depends(get_db)):
         color=data.get("color"), configuration=data.get("configuration"),
         quantity=data.get("quantity", 1), delivery_date=data.get("delivery_date"),
         comments=data.get("comments"), photo_url=data.get("photo_url"),
-        order_amount=data.get("order_amount"),
+        contract_number=data.get("contract_number"),
+        shipment_date=data.get("shipment_date"),
+        payment_method=data.get("payment_method"),
+        advance_payment=advance or None,
+        balance_payment=balance or None,
+        order_amount=total,
         manager_id=data.get("manager_id"),
         manager_username=data.get("manager_username"),
     )

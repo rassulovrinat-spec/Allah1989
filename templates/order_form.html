@@ -1,0 +1,522 @@
+{% extends "base.html" %}
+{% set active_page = 'orders' %}
+{% block title %}{% if order %}Редактировать заявку №{{ order.id }}{% else %}Новая заявка{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px">
+        <a href="{% if order %}/orders/{{ order.id }}{% else %}/orders{% endif %}" class="btn-icon">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <div class="page-title">{% if order %}Редактировать заявку №{{ order.id }}{% else %}Новая заявка{% endif %}</div>
+            <div class="page-subtitle">{% if order %}Изменения фиксируются в истории{% else %}Заполните данные клиента и заказа{% endif %}</div>
+        </div>
+    </div>
+</div>
+
+<form method="post" action="{% if order %}/orders/{{ order.id }}/edit{% else %}/orders/new{% endif %}">
+<div class="row">
+    <!-- Левая колонка -->
+    <div class="col col-8">
+
+        <!-- Клиент -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-person"></i>Клиент</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Имя клиента *</label>
+                        <input type="text" name="client_name" required
+                               value="{{ order.client_name if order else '' }}"
+                               placeholder="Иванов Иван Иванович">
+                    </div>
+                    <div class="col form-group">
+                        <label>Телефон</label>
+                        <input type="tel" name="client_phone"
+                               value="{{ order.client_phone if order else '' }}"
+                               placeholder="+7 (900) 000-00-00">
+                    </div>
+                    <div class="col form-group">
+                        <label>ФИО (контакт 1)</label>
+                        <input type="text" name="client_phone_name"
+                               value="{{ order.client_phone_name if order else '' }}"
+                               placeholder="Иванов Иван Иванович">
+                    </div>
+                    <div class="col form-group">
+                        <label>Доп. телефон</label>
+                        <input type="tel" name="client_phone2"
+                               value="{{ order.client_phone2 if order else '' }}"
+                               placeholder="+7 (900) 000-00-00">
+                    </div>
+                    <div class="col form-group">
+                        <label>ФИО (доп. контакт)</label>
+                        <input type="text" name="client_phone2_name"
+                               value="{{ order.client_phone2_name if order else '' }}"
+                               placeholder="Петров Пётр Петрович">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Email</label>
+                    <input type="email" name="client_email"
+                           value="{{ order.client_email if order else '' }}"
+                           placeholder="client@example.com">
+                </div>
+            </div>
+        </div>
+
+        <!-- Заказ -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-box-seam"></i>Характеристики заказа</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Фабрика *</label>
+                        <select name="factory_id" required>
+                            <option value="">Выберите фабрику…</option>
+                            {% for f in factories %}
+                            <option value="{{ f.id }}"
+                                {{ 'selected' if order and order.factory_name == f.name else '' }}>
+                                {{ f.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col form-group">
+                        <label>Категория *</label>
+                        <select name="category" required>
+                            {% for c in categories %}
+                            <option value="{{ c }}" {{ 'selected' if order and order.category == c else '' }}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Поиск по прайсу -->
+                <div class="form-group">
+                    <label>Модель / Артикул *</label>
+                    <div style="position:relative">
+                        <input type="text" name="model" id="model-input" required autocomplete="off"
+                               value="{{ order.model if order else '' }}"
+                               placeholder="Введите название или артикул (поиск по прайсу)…">
+                        <div id="price-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;
+                             background:var(--surface);border:1px solid var(--border);border-radius:8px;
+                             box-shadow:var(--shadow-md);z-index:200;max-height:240px;overflow-y:auto;margin-top:4px">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Размеры</label>
+                        <input type="text" name="dimensions"
+                               value="{{ order.dimensions if order else '' }}"
+                               placeholder="Ш×В×Г, например: 120×80×60">
+                    </div>
+                    <div class="col form-group">
+                        <label>Количество</label>
+                        <input type="number" name="quantity" min="1" value="{{ order.quantity if order else 1 }}">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Материал / Обивка</label>
+                        <input type="text" name="material" value="{{ order.material if order else '' }}" placeholder="Велюр, кожа, ткань…">
+                    </div>
+                    <div class="col form-group">
+                        <label>Цвет</label>
+                        <input type="text" name="color" value="{{ order.color if order else '' }}" placeholder="Серый, бежевый…">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Комплектация</label>
+                    <textarea name="configuration" rows="2" placeholder="Опишите комплектацию…">{{ order.configuration if order else '' }}</textarea>
+                </div>
+
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Комментарии</label>
+                    <textarea name="comments" rows="2" placeholder="Дополнительные пожелания…">{{ order.comments if order else '' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Адрес доставки -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-geo-alt"></i>Адрес доставки</div>
+            <div class="card-body">
+                <!-- Умный поиск -->
+                <div class="form-group">
+                    <label>Поиск адреса</label>
+                    <div style="position:relative">
+                        <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);z-index:1"></i>
+                        <input type="text" id="addr-search" autocomplete="off"
+                               placeholder="Начните вводить адрес — регион, город, улица…"
+                               style="padding-left:34px">
+                        <div id="addr-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                             background:var(--surface);border:1px solid var(--border);border-radius:10px;
+                             box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300;max-height:280px;overflow-y:auto">
+                        </div>
+                    </div>
+                    <div id="addr-loading" style="display:none;font-size:12px;color:var(--text3);margin-top:4px">
+                        <i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> Ищу адрес…
+                    </div>
+                </div>
+
+                <!-- Поля адреса -->
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Регион</label>
+                        <input type="text" name="delivery_region" id="f-region"
+                               value="{{ order.delivery_region if order else '' }}"
+                               placeholder="Татарстан">
+                    </div>
+                    <div class="col form-group">
+                        <label>Город / Нас. пункт</label>
+                        <input type="text" name="delivery_city" id="f-city"
+                               value="{{ order.delivery_city if order else '' }}"
+                               placeholder="Казань">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Улица</label>
+                    <input type="text" name="delivery_street" id="f-street"
+                           value="{{ order.delivery_street if order else '' }}"
+                           placeholder="ул. Пушкина">
+                </div>
+                <div class="row">
+                    <div class="col form-group">
+                        <label>Дом</label>
+                        <input type="text" name="delivery_house" id="f-house"
+                               value="{{ order.delivery_house if order else '' }}"
+                               placeholder="12">
+                    </div>
+                    <div class="col form-group">
+                        <label>Корпус / Строение</label>
+                        <input type="text" name="delivery_corpus" id="f-corpus"
+                               value="{{ order.delivery_corpus if order else '' }}"
+                               placeholder="к2">
+                    </div>
+                    <div class="col form-group">
+                        <label>Квартира / Офис</label>
+                        <input type="text" name="delivery_apartment" id="f-apt"
+                               value="{{ order.delivery_apartment if order else '' }}"
+                               placeholder="45">
+                    </div>
+                </div>
+                <!-- Итоговый адрес -->
+                <div id="addr-result" style="display:{% if order and order.delivery_address_full %}flex{% else %}none{% endif %};
+                     align-items:center;gap:8px;padding:10px 14px;
+                     background:var(--p-light);border-radius:8px;border:1px solid var(--p);margin-top:4px">
+                    <i class="bi bi-geo-alt-fill" style="color:var(--p);flex-shrink:0"></i>
+                    <span id="addr-result-text" style="font-size:13px;color:var(--p);font-weight:500">
+                        {{ order.delivery_address_full if order else '' }}
+                    </span>
+                </div>
+                <input type="hidden" name="delivery_address_full" id="f-full"
+                       value="{{ order.delivery_address_full if order else '' }}">
+            </div>
+        </div>
+
+        <!-- Сроки -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-calendar3"></i>Сроки</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col form-group" style="margin-bottom:0">
+                        <label>Желаемый срок поставки</label>
+                        <input type="text" name="delivery_date"
+                               value="{{ order.delivery_date if order else '' }}"
+                               placeholder="например: 45 дней">
+                    </div>
+                    <div class="col form-group" style="margin-bottom:0">
+                        <label>Дата возможной отгрузки</label>
+                        <input type="text" name="shipment_date"
+                               value="{{ order.shipment_date if order else '' }}"
+                               placeholder="например: 01.09.2026">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Правая колонка -->
+    <div class="col col-4">
+
+        <!-- Договор -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-file-earmark-text"></i>Договор</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Номер договора</label>
+                    <input type="text" name="contract_number"
+                           value="{{ order.contract_number if order else '' }}"
+                           placeholder="№ 1234/2026">
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                    <label>Дата договора</label>
+                    <input type="date" name="contract_date"
+                           value="{{ order.contract_date if order else '' }}">
+                </div>
+            </div>
+        </div>
+
+        <!-- Статус (только при редактировании) -->
+        {% if order %}
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-flag"></i>Статус</div>
+            <div class="card-body">
+                <div class="form-group" style="margin-bottom:0">
+                    <select name="status" id="status-select" onchange="toggleRejection()">
+                        <option value="new"              {{ 'selected' if order.status == 'new' }}>🆕 Новая</option>
+                        <option value="sent_to_factory"  {{ 'selected' if order.status == 'sent_to_factory' }}>📨 Отправлено на фабрику</option>
+                        <option value="accepted"         {{ 'selected' if order.status == 'accepted' }}>✅ Принято фабрикой</option>
+                        <option value="shipped"          {{ 'selected' if order.status == 'shipped' }}>🚚 Отгружено</option>
+                        <option value="delivered"        {{ 'selected' if order.status == 'delivered' }}>🏠 Доставлено</option>
+                        <option value="rejected"         {{ 'selected' if order.status == 'rejected' }}>❌ Отклонено</option>
+                    </select>
+                </div>
+                <div id="rejection-block" style="display:{{ 'block' if order.status == 'rejected' else 'none' }};margin-top:12px">
+                    <label>Причина отклонения</label>
+                    <textarea name="rejection_reason" rows="2"
+                              placeholder="Укажите причину…">{{ order.rejection_reason or '' }}</textarea>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Финансы -->
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-currency-dollar"></i>Финансы</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Способ оплаты</label>
+                    <select name="payment_method">
+                        <option value="">Не указан</option>
+                        {% for pm in payment_methods %}
+                        <option value="{{ pm }}" {{ 'selected' if order and order.payment_method == pm else '' }}>{{ pm }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Аванс, ₽</label>
+                    <input type="number" name="advance_payment" id="advance" step="0.01" min="0"
+                           value="{{ order.advance_payment if order and order.advance_payment else '' }}"
+                           placeholder="0" oninput="calcTotal()">
+                </div>
+                <div class="form-group">
+                    <label>Остаток, ₽</label>
+                    <input type="number" name="balance_payment" id="balance" step="0.01" min="0"
+                           value="{{ order.balance_payment if order and order.balance_payment else '' }}"
+                           placeholder="0" oninput="calcTotal()">
+                </div>
+                <div style="padding:12px;background:var(--p-light);border-radius:8px;border:1px solid var(--p)">
+                    <div style="font-size:11px;color:var(--p);font-weight:600;margin-bottom:4px">ИТОГО</div>
+                    <div id="total-display" style="font-size:20px;font-weight:700;color:var(--p)">
+                        {{ order.order_amount | rub if order and order.order_amount else '0 ₽' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Действия -->
+        <div class="card">
+            <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">
+                    <i class="bi bi-{% if order %}check-lg{% else %}plus-lg{% endif %}"></i>
+                    {% if order %}Сохранить изменения{% else %}Создать заявку{% endif %}
+                </button>
+                <a href="{% if order %}/orders/{{ order.id }}{% else %}/orders{% endif %}"
+                   class="btn btn-outline" style="width:100%;justify-content:center">
+                    Отмена
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+
+<script>
+// ── Статус: показ блока причины отклонения ───────────────────────────────────
+function toggleRejection() {
+    const sel = document.getElementById('status-select');
+    const block = document.getElementById('rejection-block');
+    if (sel && block) block.style.display = sel.value === 'rejected' ? 'block' : 'none';
+}
+
+// ── Автовычисление суммы ──────────────────────────────────────────────────────
+function calcTotal() {
+    const adv = parseFloat(document.getElementById('advance').value) || 0;
+    const bal = parseFloat(document.getElementById('balance').value) || 0;
+    const total = adv + bal;
+    document.getElementById('total-display').textContent =
+        total > 0 ? total.toLocaleString('ru-RU') + ' ₽' : '0 ₽';
+}
+
+// ── CSS анимация спиннера ─────────────────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = '@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }';
+document.head.appendChild(style);
+
+// ── Умный поиск адреса ────────────────────────────────────────────────────────
+const addrInput   = document.getElementById('addr-search');
+const addrDrop    = document.getElementById('addr-dropdown');
+const addrLoading = document.getElementById('addr-loading');
+const addrResult  = document.getElementById('addr-result');
+const addrResultText = document.getElementById('addr-result-text');
+let addrTimer;
+
+addrInput.addEventListener('input', function() {
+    clearTimeout(addrTimer);
+    const q = this.value.trim();
+    if (q.length < 3) { addrDrop.style.display = 'none'; addrLoading.style.display = 'none'; return; }
+    addrLoading.style.display = 'block';
+    addrDrop.style.display = 'none';
+    addrTimer = setTimeout(() => searchAddr(q), 400);
+});
+
+addrInput.addEventListener('blur', () => setTimeout(() => addrDrop.style.display = 'none', 200));
+
+async function searchAddr(q) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?` +
+            `q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=8` +
+            `&countrycodes=ru&accept-language=ru`;
+        const res = await fetch(url, { headers: { 'Accept-Language': 'ru' } });
+        const data = await res.json();
+        addrLoading.style.display = 'none';
+        if (!data.length) {
+            addrDrop.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px"><i class="bi bi-search"></i> Адрес не найден</div>';
+            addrDrop.style.display = 'block';
+            return;
+        }
+        addrDrop.innerHTML = data.map((item, i) => {
+            const a = item.address || {};
+            const region = a.state || a.province || '';
+            const city = a.city || a.town || a.village || a.municipality || '';
+            const road = a.road || a.pedestrian || a.footway || '';
+            const house = a.house_number || '';
+            const display = item.display_name || '';
+            return `<div class="addr-item" data-idx="${i}"
+                style="padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s"
+                data-region="${region}" data-city="${city}" data-street="${road}"
+                data-house="${house}" data-full="${display}">
+                <div style="font-size:13px;font-weight:600;color:var(--text)">${city || region} ${road ? '— ' + road : ''} ${house}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${display}</div>
+            </div>`;
+        }).join('');
+        addrDrop.style.display = 'block';
+        addrDrop.querySelectorAll('.addr-item').forEach(el => {
+            el.addEventListener('mouseenter', () => el.style.background = 'var(--bg)');
+            el.addEventListener('mouseleave', () => el.style.background = '');
+            el.addEventListener('mousedown', () => fillAddr(el));
+        });
+    } catch(e) {
+        addrLoading.style.display = 'none';
+        addrDrop.innerHTML = '<div style="padding:12px 14px;color:#EF4444;font-size:12px"><i class="bi bi-exclamation-triangle"></i> Ошибка поиска</div>';
+        addrDrop.style.display = 'block';
+    }
+}
+
+function fillAddr(el) {
+    const region = el.dataset.region;
+    const city   = el.dataset.city;
+    const street = el.dataset.street;
+    const house  = el.dataset.house;
+    const full   = el.dataset.full;
+
+    document.getElementById('f-region').value = region;
+    document.getElementById('f-city').value   = city;
+    document.getElementById('f-street').value = street;
+    document.getElementById('f-house').value  = house;
+
+    // Собираем полный адрес
+    const parts = [region, city, street ? 'ул. ' + street : '', house ? 'д. ' + house : ''].filter(Boolean);
+    const corpus = document.getElementById('f-corpus').value;
+    const apt    = document.getElementById('f-apt').value;
+    if (corpus) parts.push('к. ' + corpus);
+    if (apt)    parts.push('кв. ' + apt);
+    const fullAddr = parts.join(', ');
+
+    document.getElementById('f-full').value = fullAddr;
+    addrResultText.textContent = fullAddr;
+    addrResult.style.display = 'flex';
+    addrInput.value = city ? `${city}, ${street} ${house}`.trim() : full.split(',').slice(0,3).join(',');
+    addrDrop.style.display = 'none';
+}
+
+// Обновляем полный адрес при ручном заполнении полей
+['f-region','f-city','f-street','f-house','f-corpus','f-apt'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateFullAddr);
+});
+
+function updateFullAddr() {
+    const region = document.getElementById('f-region').value.trim();
+    const city   = document.getElementById('f-city').value.trim();
+    const street = document.getElementById('f-street').value.trim();
+    const house  = document.getElementById('f-house').value.trim();
+    const corpus = document.getElementById('f-corpus').value.trim();
+    const apt    = document.getElementById('f-apt').value.trim();
+    const parts  = [
+        region, city,
+        street ? 'ул. ' + street : '',
+        house  ? 'д. ' + house   : '',
+        corpus ? 'к. ' + corpus  : '',
+        apt    ? 'кв. ' + apt    : '',
+    ].filter(Boolean);
+    const full = parts.join(', ');
+    document.getElementById('f-full').value = full;
+    if (full) { addrResultText.textContent = full; addrResult.style.display = 'flex'; }
+    else addrResult.style.display = 'none';
+}
+
+// ── Поиск по прайсу ───────────────────────────────────────────────────────────
+const modelInput = document.getElementById('model-input');
+const dropdown = document.getElementById('price-dropdown');
+let debounceTimer;
+
+modelInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    const q = this.value.trim();
+    if (q.length < 2) { dropdown.style.display = 'none'; return; }
+    debounceTimer = setTimeout(() => fetchPrices(q), 250);
+});
+
+modelInput.addEventListener('blur', function() {
+    setTimeout(() => dropdown.style.display = 'none', 200);
+});
+
+async function fetchPrices(q) {
+    try {
+        const res = await fetch(`/api/price-search?q=${encodeURIComponent(q)}`);
+        const items = await res.json();
+        if (!items.length) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = items.map(i => `
+            <div class="price-item" data-name="${i.name}" data-price="${i.markup_price}"
+                 style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s">
+                <div style="font-weight:600;font-size:13px">${i.name}</div>
+                <div style="display:flex;justify-content:space-between;margin-top:3px">
+                    <span style="font-size:11px;color:var(--text3)">${i.article ? '# ' + i.article : ''} ${i.category || ''}</span>
+                    <span style="font-size:12px;font-weight:700;color:var(--p)">${i.markup_price.toLocaleString('ru-RU')} ₽</span>
+                </div>
+            </div>`).join('');
+        dropdown.style.display = 'block';
+        dropdown.querySelectorAll('.price-item').forEach(el => {
+            el.addEventListener('mouseenter', () => el.style.background = 'var(--bg)');
+            el.addEventListener('mouseleave', () => el.style.background = '');
+            el.addEventListener('mousedown', () => {
+                modelInput.value = el.dataset.name;
+                const price = parseFloat(el.dataset.price);
+                if (price > 0) {
+                    document.getElementById('advance').value = '';
+                    document.getElementById('balance').value = price;
+                    calcTotal();
+                }
+                dropdown.style.display = 'none';
+            });
+        });
+    } catch(e) { dropdown.style.display = 'none'; }
+}
+</script>
+{% endblock %}

@@ -220,6 +220,8 @@
         .badge-sent     { background: #DBEAFE; color: #1E40AF; }
         .badge-accepted { background: #DCFCE7; color: #166534; }
         .badge-rejected { background: #FEE2E2; color: #991B1B; }
+        .badge-shipped  { background: #EDE9FE; color: #5B21B6; }
+        .badge-delivered{ background: #D1FAE5; color: #065F46; }
         .badge-admin    { background: var(--p-light); color: var(--p); }
         .badge-manager  { background: #F3F4F6; color: #374151; }
         .badge-active   { background: #DCFCE7; color: #166534; }
@@ -483,6 +485,12 @@
             <div class="nav-section">Основное</div>
             <a href="/orders" class="nav-item {% if active_page == 'orders' %}active{% endif %}">
                 <i class="bi bi-list-task"></i> Заявки
+            </a>
+            <a href="/orders/new" class="nav-item {% if active_page == 'order_new' %}active{% endif %}">
+                <i class="bi bi-plus-circle"></i> Новая заявка
+            </a>
+            <a href="/my-stats" class="nav-item {% if active_page == 'my_stats' %}active{% endif %}">
+                <i class="bi bi-bar-chart-line"></i> Мои показатели
             </a>
 
             {% if me.role == 'admin' %}

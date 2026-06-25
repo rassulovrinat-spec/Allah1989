@@ -8,10 +8,15 @@
         <div class="page-title">Заявки</div>
         <div class="page-subtitle">Всего: {{ counts.values() | sum }}</div>
     </div>
-    <a href="/orders/export{% if request.query_params %}?{{ request.query_string.decode() }}{% endif %}"
-       class="btn btn-outline btn-sm">
-        <i class="bi bi-file-earmark-excel"></i>Экспорт Excel
-    </a>
+    <div style="display:flex;gap:8px">
+        <a href="/orders/new" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg"></i>Новая заявка
+        </a>
+        <a href="/orders/export{% if request.query_params %}?{{ request.query_string.decode() }}{% endif %}"
+           class="btn btn-outline btn-sm">
+            <i class="bi bi-file-earmark-excel"></i>Экспорт Excel
+        </a>
+    </div>
 </div>
 
 <!-- Stats -->
@@ -114,10 +119,13 @@
                 <tr>
                     <th>#</th>
                     <th>Дата</th>
+                    <th>Договор</th>
                     <th>Клиент</th>
                     <th>Фабрика</th>
-                    <th>Категория</th>
                     <th>Модель</th>
+                    <th>Способ оплаты</th>
+                    <th>Аванс</th>
+                    <th>Остаток</th>
                     <th>Сумма</th>
                     <th>Менеджер</th>
                     <th>Статус</th>
@@ -129,21 +137,36 @@
                 <tr>
                     <td class="text-muted text-sm">{{ o.id }}</td>
                     <td class="text-sm text-muted" style="white-space:nowrap">{{ o.created_at | dt }}</td>
+                    <td class="text-sm" style="white-space:nowrap">
+                        {{ o.contract_number or '—' }}
+                        {% if o.contract_date %}
+                        <div class="text-muted" style="font-size:11px">{{ o.contract_date }}</div>
+                        {% endif %}
+                    </td>
                     <td>
                         <div class="fw-600">{{ o.client_name }}</div>
                         {% if o.client_phone %}
                         <div class="text-muted text-sm">{{ o.client_phone }}</div>
                         {% endif %}
+                        {% if o.client_phone2 %}
+                        <div class="text-muted text-sm">
+                            {{ o.client_phone2 }}{% if o.client_phone2_name %} — {{ o.client_phone2_name }}{% endif %}
+                        </div>
+                        {% endif %}
                     </td>
                     <td class="text-sm">{{ o.factory_name }}</td>
-                    <td class="text-sm">{{ o.category }}</td>
                     <td class="fw-600 text-sm">{{ o.model }}</td>
-                    <td class="text-sm">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
+                    <td class="text-sm text-muted">{{ o.payment_method or '—' }}</td>
+                    <td class="text-sm">{{ o.advance_payment | rub if o.advance_payment else '—' }}</td>
+                    <td class="text-sm">{{ o.balance_payment | rub if o.balance_payment else '—' }}</td>
+                    <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
                     <td class="text-sm text-muted">{{ o.manager_username or '—' }}</td>
                     <td>
                         {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
                         {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">Отправлено</span>
                         {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
+                        {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
+                        {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
                         {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
                         {% endif %}
                     </td>

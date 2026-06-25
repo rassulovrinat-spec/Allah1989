@@ -12,11 +12,21 @@
                 {% if order.status == 'new' %}<span class="badge badge-new">Новая</span>
                 {% elif order.status == 'sent_to_factory' %}<span class="badge badge-sent">Отправлено фабрике</span>
                 {% elif order.status == 'accepted' %}<span class="badge badge-accepted">Принято фабрикой</span>
+                {% elif order.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
+                {% elif order.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
                 {% elif order.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
                 {% endif %}
             </div>
             <div class="page-subtitle">Создана {{ order.created_at | dt }}</div>
         </div>
+    </div>
+    <div style="display:flex;gap:8px">
+        <a href="/orders/{{ order.id }}/edit" class="btn btn-outline btn-sm">
+            <i class="bi bi-pencil"></i>Редактировать
+        </a>
+        <a href="/orders/{{ order.id }}/pdf" class="btn btn-outline btn-sm" target="_blank">
+            <i class="bi bi-file-earmark-pdf"></i>PDF
+        </a>
     </div>
 </div>
 
@@ -33,8 +43,24 @@
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Телефон</div>
-                    <div class="detail-value">{{ order.client_phone or '—' }}</div>
+                    <div class="detail-value">
+                        {{ order.client_phone or '—' }}
+                        {% if order.client_phone_name %}
+                        <span class="text-muted text-sm" style="margin-left:8px">— {{ order.client_phone_name }}</span>
+                        {% endif %}
+                    </div>
                 </div>
+                {% if order.client_phone2 %}
+                <div class="detail-row">
+                    <div class="detail-label">Доп. телефон</div>
+                    <div class="detail-value">
+                        {{ order.client_phone2 }}
+                        {% if order.client_phone2_name %}
+                        <span class="text-muted text-sm" style="margin-left:8px">— {{ order.client_phone2_name }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
                 <div class="detail-row">
                     <div class="detail-label">Email</div>
                     <div class="detail-value">{{ order.client_email or '—' }}</div>
@@ -65,9 +91,27 @@
         <div class="card" style="margin-bottom:16px">
             <div class="card-header"><i class="bi bi-currency-dollar"></i>Финансы</div>
             <div class="card-body">
+                {% if order.payment_method %}
+                <div class="detail-row">
+                    <div class="detail-label">Способ оплаты</div>
+                    <div class="detail-value">{{ order.payment_method }}</div>
+                </div>
+                {% endif %}
+                {% if order.advance_payment %}
+                <div class="detail-row">
+                    <div class="detail-label">Аванс</div>
+                    <div class="detail-value">{{ order.advance_payment | rub }}</div>
+                </div>
+                {% endif %}
+                {% if order.balance_payment %}
+                <div class="detail-row">
+                    <div class="detail-label">Остаток</div>
+                    <div class="detail-value">{{ order.balance_payment | rub }}</div>
+                </div>
+                {% endif %}
                 <div class="detail-row">
                     <div class="detail-label">Сумма заказа</div>
-                    <div class="detail-value fw-600">{{ order.order_amount | rub }}</div>
+                    <div class="detail-value fw-600" style="font-size:15px">{{ order.order_amount | rub }}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Комиссия менеджера ({{ commission_rate }}%)</div>
@@ -86,6 +130,18 @@
         <div class="card" style="margin-bottom:16px" id="product-card">
             <div class="card-header"><i class="bi bi-box-seam"></i>Характеристики</div>
             <div class="card-body">
+                {% if order.contract_number %}
+                <div class="detail-row">
+                    <div class="detail-label">Номер договора</div>
+                    <div class="detail-value fw-600">{{ order.contract_number }}</div>
+                </div>
+                {% endif %}
+                {% if order.contract_date %}
+                <div class="detail-row">
+                    <div class="detail-label">Дата договора</div>
+                    <div class="detail-value">{{ order.contract_date }}</div>
+                </div>
+                {% endif %}
                 <div class="detail-row">
                     <div class="detail-label">Категория</div>
                     <div class="detail-value">{{ order.category }}</div>
@@ -118,6 +174,14 @@
                     <div class="detail-label">Срок поставки</div>
                     <div class="detail-value">{{ order.delivery_date or '—' }}</div>
                 </div>
+                <div class="detail-row">
+                    <div class="detail-label">Дата возможной отгрузки</div>
+                    <div class="detail-value fw-600" style="color:{% if order.shipment_date %}#059669{% else %}var(--text3){% endif %}">
+                        {% if order.shipment_date %}
+                        <i class="bi bi-truck" style="margin-right:4px"></i>{{ order.shipment_date }}
+                        {% else %}—{% endif %}
+                    </div>
+                </div>
                 {% if order.comments %}
                 <div class="detail-row">
                     <div class="detail-label">Комментарии</div>
@@ -135,6 +199,59 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Адрес доставки -->
+        {% if order.delivery_address_full or order.delivery_city %}
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><i class="bi bi-geo-alt"></i>Адрес доставки</div>
+            <div class="card-body">
+                {% if order.delivery_address_full %}
+                <div style="padding:12px 14px;background:var(--p-light);border-radius:8px;border:1px solid var(--p);margin-bottom:12px;display:flex;gap:8px">
+                    <i class="bi bi-geo-alt-fill" style="color:var(--p);flex-shrink:0;margin-top:2px"></i>
+                    <span style="font-size:13px;font-weight:500;color:var(--p)">{{ order.delivery_address_full }}</span>
+                </div>
+                {% endif %}
+                <div class="row" style="gap:8px 20px">
+                    {% if order.delivery_region %}
+                    <div style="flex:1;min-width:140px">
+                        <div class="text-muted text-sm" style="margin-bottom:2px">Регион</div>
+                        <div class="fw-600 text-sm">{{ order.delivery_region }}</div>
+                    </div>
+                    {% endif %}
+                    {% if order.delivery_city %}
+                    <div style="flex:1;min-width:140px">
+                        <div class="text-muted text-sm" style="margin-bottom:2px">Город</div>
+                        <div class="fw-600 text-sm">{{ order.delivery_city }}</div>
+                    </div>
+                    {% endif %}
+                    {% if order.delivery_street %}
+                    <div style="flex:1 0 100%">
+                        <div class="text-muted text-sm" style="margin-bottom:2px">Улица</div>
+                        <div class="fw-600 text-sm">{{ order.delivery_street }}</div>
+                    </div>
+                    {% endif %}
+                    {% if order.delivery_house %}
+                    <div>
+                        <div class="text-muted text-sm" style="margin-bottom:2px">Дом</div>
+                        <div class="fw-600 text-sm">{{ order.delivery_house }}</div>
+                    </div>
+                    {% endif %}
+                    {% if order.delivery_corpus %}
+                    <div>
+                        <div class="text-muted text-sm" style="margin-bottom:2px">Корпус</div>
+                        <div class="fw-600 text-sm">{{ order.delivery_corpus }}</div>
+                    </div>
+                    {% endif %}
+                    {% if order.delivery_apartment %}
+                    <div>
+                        <div class="text-muted text-sm" style="margin-bottom:2px">Квартира</div>
+                        <div class="fw-600 text-sm">{{ order.delivery_apartment }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Attachments -->
         <div class="card">
@@ -226,11 +343,42 @@
         </div>
         {% endif %}
 
-        <!-- Timeline -->
+        {% if order.status == 'accepted' and me.role == 'admin' %}
+        <div class="card" style="margin-bottom:16px;border-color:#C4B5FD">
+            <div class="card-header" style="background:#F5F3FF;color:#5B21B6">
+                <i class="bi bi-truck"></i>Логистика
+            </div>
+            <div class="card-body">
+                <p class="text-muted text-sm" style="margin-bottom:14px">Товар подтверждён фабрикой. Отметьте отгрузку когда товар отправлен.</p>
+                <form method="post" action="/orders/{{ order.id }}/ship">
+                    <button class="btn btn-sm" style="width:100%;background:#EDE9FE;color:#5B21B6"
+                            onclick="return confirm('Отметить как отгружено?')">
+                        <i class="bi bi-truck"></i>Отметить: Отгружено
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% elif order.status == 'shipped' and me.role == 'admin' %}
+        <div class="card" style="margin-bottom:16px;border-color:#6EE7B7">
+            <div class="card-header" style="background:#ECFDF5;color:#065F46">
+                <i class="bi bi-house-check"></i>Доставка
+            </div>
+            <div class="card-body">
+                <form method="post" action="/orders/{{ order.id }}/deliver">
+                    <button class="btn btn-sm" style="width:100%;background:#D1FAE5;color:#065F46"
+                            onclick="return confirm('Отметить как доставлено клиенту?')">
+                        <i class="bi bi-check2-all"></i>Отметить: Доставлено клиенту
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- История изменений -->
         <div class="card">
             <div class="card-header"><i class="bi bi-clock-history"></i>История</div>
-            <div class="card-body">
-                <div class="timeline">
+            <div class="card-body" style="padding:0">
+                <div class="timeline" style="padding:16px" id="history-list">
                     <div class="tl-item">
                         <div class="tl-dot tl-dot-success"><i class="bi bi-plus"></i></div>
                         <div>
@@ -256,6 +404,22 @@
                         </div>
                     </div>
                     {% endif %}
+                    {% if order.status == 'shipped' or order.status == 'delivered' %}
+                    <div class="tl-item">
+                        <div class="tl-dot" style="background:#EDE9FE;color:#5B21B6"><i class="bi bi-truck"></i></div>
+                        <div>
+                            <div class="tl-text">Отгружено</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if order.status == 'delivered' %}
+                    <div class="tl-item">
+                        <div class="tl-dot tl-dot-success"><i class="bi bi-house-check"></i></div>
+                        <div>
+                            <div class="tl-text">Доставлено клиенту</div>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% if order.status == 'rejected' %}
                     <div class="tl-item">
                         <div class="tl-dot tl-dot-danger"><i class="bi bi-x"></i></div>
@@ -268,8 +432,53 @@
                     </div>
                     {% endif %}
                 </div>
+                <!-- Детальная история изменений -->
+                <div id="changes-list" style="border-top:1px solid var(--border);padding:12px 16px;display:none">
+                    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Изменения полей</div>
+                </div>
+                <div style="padding:8px 16px 12px;border-top:1px solid var(--border)">
+                    <button onclick="loadHistory({{ order.id }})" class="btn btn-outline btn-sm" id="history-btn">
+                        <i class="bi bi-list-check"></i>Показать историю изменений
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 </div>
+<script>
+async function loadHistory(orderId) {
+    const btn = document.getElementById('history-btn');
+    const list = document.getElementById('changes-list');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass"></i>Загружаю…';
+    try {
+        const res = await fetch(`/orders/${orderId}/history`);
+        const items = await res.json();
+        const fieldNames = {
+            status: 'Статус', model: 'Модель', client_name: 'Клиент',
+            advance_payment: 'Аванс', balance_payment: 'Остаток',
+            order_amount: 'Сумма', payment_method: 'Способ оплаты',
+            shipment_date: 'Дата отгрузки', contract_number: 'Договор'
+        };
+        if (!items.length) {
+            list.innerHTML += '<div class="text-muted text-sm">Изменений не зафиксировано</div>';
+        } else {
+            list.innerHTML += items.map(h => `
+                <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+                    <span style="color:var(--text3)">${h.created_at}</span>
+                    <span style="margin:0 6px;font-weight:600">${h.username}</span>
+                    ${h.field ? `изменил <b>${fieldNames[h.field] || h.field}</b>:
+                        <span style="color:#EF4444">${h.old_value || '—'}</span> →
+                        <span style="color:#059669">${h.new_value || '—'}</span>` : ''}
+                    ${h.comment ? `<span style="color:var(--text2)">${h.comment}</span>` : ''}
+                </div>`).join('');
+        }
+        list.style.display = 'block';
+        btn.style.display = 'none';
+    } catch(e) {
+        btn.innerHTML = '<i class="bi bi-exclamation"></i>Ошибка';
+        btn.disabled = false;
+    }
+}
+</script>
 {% endblock %}

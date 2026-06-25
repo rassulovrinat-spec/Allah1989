@@ -20,6 +20,14 @@
         <div class="stat-value">{{ counts['accepted'] }}</div>
         <div class="stat-label">Принято фабрикой</div>
     </div>
+    <div class="stat-card" style="border-color:#F59E0B;background:linear-gradient(135deg,var(--surface),#FFFBEB)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i class="bi bi-calendar-check" style="color:#F59E0B;font-size:13px"></i>
+            <span class="stat-label" style="margin:0;color:#92400E;font-weight:600">Выручка этого месяца</span>
+        </div>
+        <div class="stat-value" style="font-size:18px;color:#D97706">{{ month_revenue | rub }}</div>
+        <div class="stat-label" style="margin-top:2px">с 1-го числа</div>
+    </div>
     <div class="stat-card" style="border-color:var(--p)">
         <div class="stat-value" style="font-size:18px;color:var(--p)">{{ total_revenue | rub }}</div>
         <div class="stat-label">Общая выручка</div>

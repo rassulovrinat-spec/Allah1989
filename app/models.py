@@ -38,6 +38,9 @@ class Order(Base):
 
     client_name = Column(String(200), nullable=False)
     client_phone = Column(String(50))
+    client_phone_name = Column(String(200))
+    client_phone2 = Column(String(50))
+    client_phone2_name = Column(String(200))
     client_email = Column(String(200))
     client_telegram_id = Column(String(50))
 
@@ -55,8 +58,24 @@ class Order(Base):
     comments = Column(Text)
     photo_url = Column(String(500))
 
+    contract_number = Column(String(100))   # номер договора
+    contract_date = Column(String(50))      # дата договора
+    shipment_date = Column(String(100))     # дата возможной отгрузки
+    payment_method = Column(String(100))    # способ оплаты
+
+    # Адрес доставки
+    delivery_region = Column(String(200))   # регион
+    delivery_city = Column(String(200))     # город
+    delivery_street = Column(String(300))   # улица
+    delivery_house = Column(String(50))     # дом
+    delivery_corpus = Column(String(50))    # корпус
+    delivery_apartment = Column(String(50)) # квартира
+    delivery_address_full = Column(Text)    # полный адрес строкой
+
     # Финансы
-    order_amount = Column(Float)           # сумма заказа в рублях
+    advance_payment = Column(Float)        # аванс
+    balance_payment = Column(Float)        # остаток
+    order_amount = Column(Float)           # итоговая сумма (аванс + остаток)
     manager_id = Column(Integer)           # id менеджера из User
     manager_username = Column(String(100)) # логин менеджера
 
@@ -125,4 +144,19 @@ class OrderStatus:
     new = "new"
     sent_to_factory = "sent_to_factory"
     accepted = "accepted"
+    shipped = "shipped"
+    delivered = "delivered"
     rejected = "rejected"
+
+
+class OrderHistory(Base):
+    __tablename__ = "order_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, nullable=False, index=True)
+    username = Column(String(100), nullable=False)
+    field = Column(String(100))
+    old_value = Column(Text)
+    new_value = Column(Text)
+    comment = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% set active_page = 'my_stats' %}
+{% block title %}Мои показатели{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Мои показатели</div>
+        <div class="page-subtitle">Личная статистика — {{ me.display_name or me.username }}</div>
+    </div>
+</div>
+
+<!-- Карточки -->
+<div class="stats" style="margin-bottom:24px">
+    <div class="stat-card" style="border-color:#F59E0B;background:linear-gradient(135deg,var(--surface),#FFFBEB)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i class="bi bi-calendar-check" style="color:#F59E0B;font-size:13px"></i>
+            <span class="stat-label" style="margin:0;color:#92400E;font-weight:600">Этот месяц</span>
+        </div>
+        <div class="stat-value" style="font-size:20px;color:#D97706">{{ month_revenue | rub }}</div>
+        <div class="stat-label">{{ month_count }} сделок · комиссия {{ month_commission | rub }}</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--p)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <i class="bi bi-graph-up-arrow" style="color:var(--p);font-size:13px"></i>
+            <span class="stat-label" style="margin:0;font-weight:600">За всё время</span>
+        </div>
+        <div class="stat-value" style="font-size:20px;color:var(--p)">{{ total_revenue | rub }}</div>
+        <div class="stat-label">{{ total_count }} сделок · комиссия {{ total_commission | rub }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ counts['new'] }}</div>
+        <div class="stat-label">Новых заявок</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ counts['sent_to_factory'] }}</div>
+        <div class="stat-label">Ожидают ответа</div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- График -->
+    <div class="col col-8">
+        <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><i class="bi bi-graph-up"></i>Выручка за 6 месяцев</div>
+            <div class="card-body">
+                <canvas id="myChart" height="100"></canvas>
+            </div>
+        </div>
+
+        <!-- Последние заявки -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-clock-history"></i>Последние 10 заявок</div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Дата</th>
+                            <th>Клиент</th>
+                            <th>Модель</th>
+                            <th>Сумма</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for o in recent %}
+                        <tr onclick="location.href='/orders/{{ o.id }}'" style="cursor:pointer">
+                            <td class="text-muted text-sm">{{ o.id }}</td>
+                            <td class="text-sm text-muted">{{ o.created_at | dt }}</td>
+                            <td class="fw-600">{{ o.client_name }}</td>
+                            <td class="text-sm">{{ o.model }}</td>
+                            <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
+                            <td>
+                                {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
+                                {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">Отправлено</span>
+                                {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
+                                {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
+                                {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
+                                {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6"><div class="empty"><i class="bi bi-inbox"></i><p>Заявок нет</p></div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Правая: статусы -->
+    <div class="col col-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-pie-chart"></i>Мои заявки по статусам</div>
+            <div class="card-body">
+                <canvas id="statusChart" height="180"></canvas>
+                <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+                    {% set status_colors = {'new': '#F59E0B', 'sent_to_factory': '#3B82F6', 'accepted': '#10B981', 'shipped': '#8B5CF6', 'delivered': '#059669', 'rejected': '#EF4444'} %}
+                    {% set status_names = {'new': 'Новые', 'sent_to_factory': 'Отправлено', 'accepted': 'Принято', 'shipped': 'Отгружено', 'delivered': 'Доставлено', 'rejected': 'Отклонено'} %}
+                    {% for s, cnt in counts.items() %}
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:{{ status_colors[s] }};display:inline-block"></span>
+                            {{ status_names[s] }}
+                        </span>
+                        <strong>{{ cnt }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const monthly = {{ monthly_data | tojson }};
+const accent = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#4F46E5';
+
+new Chart(document.getElementById('myChart'), {
+    type: 'bar',
+    data: {
+        labels: monthly.map(d => d.label),
+        datasets: [
+            { label: 'Выручка ₽', data: monthly.map(d => d.total),
+              backgroundColor: accent + '33', borderColor: accent, borderWidth: 2, borderRadius: 6 },
+            { label: 'Комиссия ₽', data: monthly.map(d => d.commission),
+              backgroundColor: '#10B98133', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'К ₽' : v + ' ₽' } } }
+    }
+});
+
+const counts = {{ counts | tojson }};
+new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Новые','Отправлено','Принято','Отгружено','Доставлено','Отклонено'],
+        datasets: [{ data: [counts.new, counts.sent_to_factory, counts.accepted,
+                            counts.shipped||0, counts.delivered||0, counts.rejected],
+                     backgroundColor: ['#F59E0B','#3B82F6','#10B981','#8B5CF6','#059669','#EF4444'],
+                     borderWidth: 0 }]
+    },
+    options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
+});
+</script>
+{% endblock %}
