@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./orders.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////app/data/orders.db")
 
 engine = create_engine(
     DATABASE_URL,
@@ -26,7 +26,7 @@ def _migrate():
     """Add missing columns to existing tables without losing data."""
     if "sqlite" not in DATABASE_URL:
         return
-    db_path = DATABASE_URL.replace("sqlite:///", "").lstrip("./")
+    db_path = DATABASE_URL.replace("sqlite:///", "")
     if not os.path.exists(db_path):
         return
     import sqlite3

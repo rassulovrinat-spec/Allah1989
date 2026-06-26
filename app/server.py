@@ -46,7 +46,7 @@ templates.env.filters["date"] = lambda x: x.strftime("%d.%m.%Y") if x else "—"
 templates.env.filters["rub"]  = lambda x: f"{x:,.0f} ₽".replace(",", " ") if x else "—"
 
 STATIC_DIR  = os.path.join(BASE_DIR, "static")
-UPLOADS_DIR = os.path.join(STATIC_DIR, "uploads")
+UPLOADS_DIR = os.environ.get("UPLOADS_DIR", "/app/data/uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
