@@ -154,48 +154,33 @@ const comms   = monthly.map(d => d.commission);
 // Цвет акцента из CSS-переменной
 const accent = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#4F46E5';
 
-new Chart(document.getElementById('revenueChart'), {
-    type: 'bar',
-    data: {
-        labels,
-        datasets: [
-            {
-                label: 'Выручка ₽',
-                data: totals,
-                backgroundColor: accent + '33',
-                borderColor: accent,
-                borderWidth: 2,
-                borderRadius: 6,
-            },
-            {
-                label: 'Комиссии ₽',
-                data: comms,
-                backgroundColor: '#10B98133',
-                borderColor: '#10B981',
-                borderWidth: 2,
-                borderRadius: 6,
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'top' } },
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    maxTicksLimit: 6,
-                    callback: v => {
-                        if (v === 0) return '0 ₽';
-                        if (v >= 1000000) return (v/1000000).toFixed(1) + 'М ₽';
-                        if (v >= 1000) return (v/1000).toFixed(0) + 'К ₽';
-                        return v + ' ₽';
-                    }
-                }
-            }
+const allZero = totals.every(v => v === 0);
+if (allZero) {
+    const c = document.getElementById('revenueChart');
+    c.style.display = 'none';
+    c.insertAdjacentHTML('afterend', '<div class="empty" style="padding:40px 20px"><i class="bi bi-graph-up"></i><p>Добавьте заявки — здесь появится график выручки</p></div>');
+} else {
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Выручка ₽', data: totals, backgroundColor: accent + '33', borderColor: accent, borderWidth: 2, borderRadius: 6 },
+                { label: 'Комиссии ₽', data: comms, backgroundColor: '#10B98133', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => {
+                if (v === 0) return '0 ₽';
+                if (v >= 1000000) return (v/1000000).toFixed(1) + 'М ₽';
+                if (v >= 1000) return (v/1000).toFixed(0) + 'К ₽';
+                return v + ' ₽';
+            }}}}
         }
-    }
-});
+    });
+}
 
 const counts = {{ counts | tojson }};
 new Chart(document.getElementById('statusChart'), {

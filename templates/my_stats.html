@@ -119,23 +119,28 @@
 const monthly = {{ monthly_data | tojson }};
 const accent = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#4F46E5';
 
-new Chart(document.getElementById('myChart'), {
-    type: 'bar',
-    data: {
-        labels: monthly.map(d => d.label),
-        datasets: [
-            { label: 'Выручка ₽', data: monthly.map(d => d.total),
-              backgroundColor: accent + '33', borderColor: accent, borderWidth: 2, borderRadius: 6 },
-            { label: 'Комиссия ₽', data: monthly.map(d => d.commission),
-              backgroundColor: '#10B98133', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 }
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'top' } },
-        scales: { y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => { if(v===0) return '0 ₽'; if(v>=1000000) return (v/1000000).toFixed(1)+'М ₽'; if(v>=1000) return (v/1000).toFixed(0)+'К ₽'; return v+' ₽'; } } } }
-    }
-});
+const allZero = monthly.every(d => d.total === 0);
+if (allZero) {
+    const c = document.getElementById('myChart');
+    c.style.display = 'none';
+    c.insertAdjacentHTML('afterend', '<div class="empty" style="padding:40px 20px"><i class="bi bi-graph-up"></i><p>Здесь появится ваша статистика после первых заявок</p></div>');
+} else {
+    new Chart(document.getElementById('myChart'), {
+        type: 'bar',
+        data: {
+            labels: monthly.map(d => d.label),
+            datasets: [
+                { label: 'Выручка ₽', data: monthly.map(d => d.total), backgroundColor: accent + '33', borderColor: accent, borderWidth: 2, borderRadius: 6 },
+                { label: 'Комиссия ₽', data: monthly.map(d => d.commission), backgroundColor: '#10B98133', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => { if(v===0) return '0 ₽'; if(v>=1000000) return (v/1000000).toFixed(1)+'М ₽'; if(v>=1000) return (v/1000).toFixed(0)+'К ₽'; return v+' ₽'; } } } }
+        }
+    });
+}
 
 const counts = {{ counts | tojson }};
 new Chart(document.getElementById('statusChart'), {
