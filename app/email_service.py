@@ -27,9 +27,6 @@ def _send(to: str, subject: str, html: str):
 
 def send_factory_email(order, confirm_url: str):
     rows = [
-        ("Клиент", order.client_name),
-        ("Телефон", order.client_phone or "—"),
-        ("Email клиента", order.client_email or "—"),
         ("Категория", order.category),
         ("Модель / Артикул", order.model),
         ("Размеры", order.dimensions or "—"),
@@ -39,7 +36,6 @@ def send_factory_email(order, confirm_url: str):
         ("Количество", str(order.quantity)),
         ("Срок поставки", order.delivery_date or "—"),
         ("Дата возможной отгрузки", order.shipment_date or "—"),
-        ("Адрес доставки", order.delivery_address_full or "—"),
         ("Комментарии", order.comments or "—"),
     ]
     rows_html = "".join(
