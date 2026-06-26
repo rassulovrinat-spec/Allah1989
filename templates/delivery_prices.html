@@ -78,7 +78,7 @@
                             {% else %}—{% endif %}
                         </td>
                         <td style="text-align:right">
-                            <span style="font-size:16px;font-weight:700;color:var(--p)">{{ item.price | int | string | replace("000", " 000") }} ₽</span>
+                            <span style="font-size:16px;font-weight:700;color:var(--p)">{{ item.price | rub }}</span>
                         </td>
                     </tr>
                     {% endfor %}
@@ -105,7 +105,7 @@
                             {{ item.name }}
                         </td>
                         <td style="text-align:right">
-                            <span style="font-size:16px;font-weight:700;color:#059669">{{ item.price | int | string | replace("000", " 000") }} ₽</span>
+                            <span style="font-size:16px;font-weight:700;color:#059669">{{ item.price | rub }}</span>
                         </td>
                     </tr>
                     {% endfor %}
