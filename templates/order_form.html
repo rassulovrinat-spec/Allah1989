@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set active_page = 'orders' %}
+{% set active_page = 'order_new' if not order else 'orders' %}
 {% block title %}{% if order %}Редактировать заявку №{{ order.id }}{% else %}Новая заявка{% endif %}{% endblock %}
 
 {% block content %}
@@ -318,7 +318,7 @@
 
         <!-- Финансы -->
         <div class="card" style="margin-bottom:16px">
-            <div class="card-header"><i class="bi bi-currency-dollar"></i>Финансы</div>
+            <div class="card-header"><i class="bi bi-cash-coin"></i>Финансы</div>
             <div class="card-body">
                 <div class="form-group">
                     <label>Способ оплаты</label>
