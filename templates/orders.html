@@ -6,7 +6,7 @@
 <div class="page-header">
     <div>
         <div class="page-title">Заявки</div>
-        <div class="page-subtitle">Всего: {{ counts.values() | sum }}</div>
+        <div class="page-subtitle">Всего: {{ total }}</div>
     </div>
     <div style="display:flex;gap:8px">
         <a href="/orders/new" class="btn btn-primary btn-sm">
@@ -14,11 +14,11 @@
         </a>
         <a href="/orders/export{% if request.query_params %}?{{ request.query_string.decode() }}{% endif %}"
            class="btn btn-outline btn-sm">
-            <i class="bi bi-file-earmark-excel"></i>Экспорт Excel
+            <i class="bi bi-file-earmark-excel"></i>Экспорт
         </a>
         {% if me.role == 'admin' %}
-        <a href="/admin/reminders" class="btn btn-outline btn-sm" title="Отправить напоминания по истекающим срокам">
-            <i class="bi bi-bell"></i>Напомнить
+        <a href="/admin/reminders" class="btn btn-outline btn-sm" title="Напоминания по срокам">
+            <i class="bi bi-bell"></i>
         </a>
         {% endif %}
     </div>
@@ -26,28 +26,33 @@
 
 <!-- Stats -->
 <div class="stats">
-    <div class="stat-card">
-        <div class="stat-value">{{ counts['new'] }}</div>
+    <a href="/orders?status=new" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'new' %}#F59E0B{% else %}var(--border){% endif %}">
+        <div class="stat-value" style="color:#D97706">{{ counts['new'] }}</div>
         <div class="stat-label">Новые</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ counts['sent_to_factory'] }}</div>
-        <div class="stat-label">Отправлено</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ counts['accepted'] }}</div>
+    </a>
+    <a href="/orders?status=sent_to_factory" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'sent_to_factory' %}#3B82F6{% else %}var(--border){% endif %}">
+        <div class="stat-value" style="color:#2563EB">{{ counts['sent_to_factory'] }}</div>
+        <div class="stat-label">На фабрике</div>
+    </a>
+    <a href="/orders?status=accepted" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'accepted' %}#10B981{% else %}var(--border){% endif %}">
+        <div class="stat-value" style="color:#059669">{{ counts['accepted'] }}</div>
         <div class="stat-label">Принято</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ counts['rejected'] }}</div>
+    </a>
+    <a href="/orders?status=shipped" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'shipped' %}#8B5CF6{% else %}var(--border){% endif %}">
+        <div class="stat-value" style="color:#7C3AED">{{ counts['shipped'] }}</div>
+        <div class="stat-label">Отгружено</div>
+    </a>
+    <a href="/orders?status=rejected" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'rejected' %}#EF4444{% else %}var(--border){% endif %}">
+        <div class="stat-value" style="color:#DC2626">{{ counts['rejected'] }}</div>
         <div class="stat-label">Отклонено</div>
-    </div>
+    </a>
 </div>
 
 <!-- Search + Filters -->
 <div class="card" style="margin-bottom:16px">
     <div class="card-body" style="padding:14px 20px">
-        <form method="get" action="/orders" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <form method="get" action="/orders" id="filterForm" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+            {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
             <div class="form-group" style="margin:0;flex:1;min-width:200px">
                 <label>Поиск</label>
                 <div style="position:relative">
@@ -99,20 +104,29 @@
 
 <!-- Status tabs -->
 <div class="filter-tabs">
-    <a href="/orders" class="filter-tab {% if not current_status %}active{% endif %}">
-        Все <span class="count">{{ counts.values() | sum }}</span>
+    <a href="#" class="filter-tab {% if not current_status %}active{% endif %}" data-status="">
+        Все <span class="count">{{ total }}</span>
     </a>
-    <a href="/orders?status=new" class="filter-tab {% if current_status == 'new' %}active{% endif %}">
+    <a href="#" class="filter-tab {% if current_status == 'new' %}active{% endif %}" data-status="new">
         Новые <span class="count">{{ counts['new'] }}</span>
     </a>
-    <a href="/orders?status=sent_to_factory" class="filter-tab {% if current_status == 'sent_to_factory' %}active{% endif %}">
-        Отправлено <span class="count">{{ counts['sent_to_factory'] }}</span>
+    <a href="#" class="filter-tab {% if current_status == 'sent_to_factory' %}active{% endif %}" data-status="sent_to_factory">
+        На фабрике <span class="count">{{ counts['sent_to_factory'] }}</span>
     </a>
-    <a href="/orders?status=accepted" class="filter-tab {% if current_status == 'accepted' %}active{% endif %}">
+    <a href="#" class="filter-tab {% if current_status == 'accepted' %}active{% endif %}" data-status="accepted">
         Принято <span class="count">{{ counts['accepted'] }}</span>
     </a>
-    <a href="/orders?status=rejected" class="filter-tab {% if current_status == 'rejected' %}active{% endif %}">
+    <a href="#" class="filter-tab {% if current_status == 'shipped' %}active{% endif %}" data-status="shipped">
+        Отгружено <span class="count">{{ counts['shipped'] }}</span>
+    </a>
+    <a href="#" class="filter-tab {% if current_status == 'delivered' %}active{% endif %}" data-status="delivered">
+        Доставлено <span class="count">{{ counts['delivered'] }}</span>
+    </a>
+    <a href="#" class="filter-tab {% if current_status == 'rejected' %}active{% endif %}" data-status="rejected">
         Отклонено <span class="count">{{ counts['rejected'] }}</span>
+    </a>
+    <a href="#" class="filter-tab {% if current_status == 'cancelled' %}active{% endif %}" data-status="cancelled">
+        Отменена <span class="count">{{ counts['cancelled'] }}</span>
     </a>
 </div>
 
@@ -128,18 +142,19 @@
                     <th>Клиент</th>
                     <th>Фабрика</th>
                     <th>Модель</th>
-                    <th>Способ оплаты</th>
+                    <th>Срок</th>
                     <th>Сумма</th>
                     <th>Аванс</th>
                     <th>Остаток</th>
                     <th>Менеджер</th>
                     <th>Статус</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 {% for o in orders %}
-                <tr class="{% if o.status == 'new' %}row-new{% endif %}">
+                {% set overdue = o.delivery_date and o.delivery_date < today_str and o.status not in ('delivered','cancelled','rejected') %}
+                <tr class="{% if o.status == 'new' %}row-new{% endif %} row-link"
+                    onclick="location.href='/orders/{{ o.id }}'" style="cursor:pointer">
                     <td class="text-muted text-sm">{{ o.id }}</td>
                     <td class="text-sm text-muted" style="white-space:nowrap">{{ o.created_at | dt }}</td>
                     <td class="text-sm" style="white-space:nowrap">
@@ -153,22 +168,22 @@
                         {% if o.client_phone %}
                         <div class="text-muted text-sm">{{ o.client_phone }}</div>
                         {% endif %}
-                        {% if o.client_phone2 %}
-                        <div class="text-muted text-sm">
-                            {{ o.client_phone2 }}{% if o.client_phone2_name %} — {{ o.client_phone2_name }}{% endif %}
-                        </div>
-                        {% endif %}
                     </td>
                     <td class="text-sm">{{ o.factory_name }}</td>
                     <td class="fw-600 text-sm">{{ o.model }}</td>
-                    <td class="text-sm text-muted">{{ o.payment_method or '—' }}</td>
+                    <td class="text-sm" style="white-space:nowrap;{% if overdue %}color:#DC2626;font-weight:600{% else %}color:var(--text3){% endif %}">
+                        {% if o.delivery_date %}
+                        {% if overdue %}<i class="bi bi-exclamation-triangle-fill" style="font-size:11px"></i> {% endif %}
+                        {{ o.delivery_date }}
+                        {% else %}—{% endif %}
+                    </td>
                     <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
                     <td class="text-sm">{{ o.advance_payment | rub if o.advance_payment else '—' }}</td>
                     <td class="text-sm">{{ o.balance_payment | rub if o.balance_payment else '—' }}</td>
                     <td class="text-sm text-muted">{{ o.manager_username or '—' }}</td>
                     <td>
                         {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
-                        {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">Отправлено</span>
+                        {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">На фабрике</span>
                         {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
                         {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
                         {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
@@ -176,18 +191,18 @@
                         {% elif o.status == 'cancelled' %}<span class="badge" style="background:#F3F4F6;color:#6B7280">Отменена</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <a href="/orders/{{ o.id }}" class="btn-icon" title="Открыть">
-                            <i class="bi bi-arrow-right"></i>
-                        </a>
-                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="13">
+                    <td colspan="12">
                         <div class="empty">
                             <i class="bi bi-inbox"></i>
                             <p>Заявок не найдено</p>
+                            {% if not search and not current_status %}
+                            <a href="/orders/new" class="btn btn-primary btn-sm" style="margin-top:12px">
+                                <i class="bi bi-plus-lg"></i>Создать первую заявку
+                            </a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -196,4 +211,42 @@
         </table>
     </div>
 </div>
+
+<!-- Pagination -->
+{% if total > page_size %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding:0 4px">
+    <div class="text-muted text-sm">
+        Показано {{ page * page_size + 1 }}–{{ [page * page_size + page_size, total] | min }} из {{ total }}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+        {% set sep = '&' if base_qs else '' %}
+        {% if page > 0 %}
+        <a href="/orders?{{ base_qs }}{{ sep }}page={{ page - 1 }}" class="btn btn-outline btn-sm">
+            <i class="bi bi-chevron-left"></i>Назад
+        </a>
+        {% endif %}
+        <span class="text-muted text-sm">стр. {{ page + 1 }} / {{ ((total - 1) // page_size) + 1 }}</span>
+        {% if (page + 1) * page_size < total %}
+        <a href="/orders?{{ base_qs }}{{ sep }}page={{ page + 1 }}" class="btn btn-outline btn-sm">
+            Вперёд<i class="bi bi-chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Статус-табы сохраняют текущие фильтры поиска
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    document.querySelectorAll('.filter-tab[data-status]').forEach(tab => {
+        const np = new URLSearchParams();
+        ['search','manager','factory','date_from','date_to'].forEach(k => {
+            if (params.get(k)) np.set(k, params.get(k));
+        });
+        if (tab.dataset.status) np.set('status', tab.dataset.status);
+        tab.href = '/orders?' + np.toString();
+    });
+})();
+</script>
 {% endblock %}

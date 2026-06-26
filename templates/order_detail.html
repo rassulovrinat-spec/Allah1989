@@ -3,6 +3,11 @@
 {% block title %}Заявка №{{ order.id }}{% endblock %}
 
 {% block content %}
+<div class="breadcrumb">
+    <a href="/orders">Заявки</a>
+    <i class="bi bi-chevron-right"></i>
+    <span>№{{ order.id }} — {{ order.client_name }}</span>
+</div>
 <div class="page-header">
     <div style="display:flex;align-items:center;gap:12px">
         <a href="/orders" class="btn-icon"><i class="bi bi-arrow-left"></i></a>

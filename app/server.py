@@ -85,11 +85,16 @@ def get_settings(db: Session):
 
 def ctx(request: Request, db: Session, user: User, **extra):
     import time
+    from datetime import date
     s = get_settings(db)
-    trash_count = db.query(Order).filter(Order.deleted_at != None).count()
+    trash_q = db.query(Order).filter(Order.deleted_at != None)
+    if user.role != "admin":
+        trash_q = trash_q.filter(Order.manager_username == user.username)
+    trash_count = trash_q.count()
     return {"request": request, "me": user, "theme": s.theme,
             "primary_color": s.primary_color, "status_labels": STATUS_LABELS,
-            "trash_count": trash_count, "now_ts": time.time(), **extra}
+            "trash_count": trash_count, "now_ts": time.time(),
+            "today_str": date.today().isoformat(), **extra}
 
 
 def log(db: Session, user: User, action: str, request: Request = None):
@@ -177,10 +182,13 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 # ── orders ────────────────────────────────────────────────────────────────────
 
+PAGE_SIZE = 50
+
 @app.get("/orders", response_class=HTMLResponse)
 def orders_list(request: Request, status: str = None, search: str = None,
                 manager: str = None, factory: str = None,
                 date_from: str = None, date_to: str = None,
+                page: int = 0,
                 db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user:
@@ -211,16 +219,28 @@ def orders_list(request: Request, status: str = None, search: str = None,
             q = q.filter(Order.created_at < datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1))
         except ValueError:
             pass
-    orders = q.order_by(Order.created_at.desc()).all()
+    page = max(0, page)
+    total = q.count()
+    orders = q.order_by(Order.created_at.desc()).offset(page * PAGE_SIZE).limit(PAGE_SIZE).all()
     counts = {s: db.query(Order).filter(Order.deleted_at == None, Order.status == s).count() for s in STATUS_LABELS}
     managers = [r[0] for r in db.query(Order.manager_username).filter(
         Order.manager_username.isnot(None)).distinct().all()]
     factories = db.query(Factory).order_by(Factory.name).all()
+    # base query string без page — для пагинации
+    bqs_parts = []
+    if status: bqs_parts.append(f"status={status}")
+    if search: bqs_parts.append(f"search={search}")
+    if manager: bqs_parts.append(f"manager={manager}")
+    if factory: bqs_parts.append(f"factory={factory}")
+    if date_from: bqs_parts.append(f"date_from={date_from}")
+    if date_to: bqs_parts.append(f"date_to={date_to}")
+    base_qs = "&".join(bqs_parts)
     return templates.TemplateResponse("orders.html", ctx(request, db, user,
         orders=orders, current_status=status, counts=counts,
         search=search or "", filter_manager=manager or "", filter_factory=factory or "",
         date_from=date_from or "", date_to=date_to or "",
-        managers=managers, factories=factories))
+        managers=managers, factories=factories,
+        page=page, total=total, page_size=PAGE_SIZE, base_qs=base_qs))
 
 
 @app.get("/orders/export")
