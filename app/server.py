@@ -20,7 +20,7 @@ from app.email_service import send_factory_email, send_admin_notification
 from app.price_parser import parse_price_file
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
-COMMISSION_RATE = 0.03
+COMMISSION_RATE = 0.05
 
 
 def send_telegram_message(chat_id, text: str):
