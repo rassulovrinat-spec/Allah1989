@@ -282,6 +282,8 @@ def order_new_submit(
     client_phone_name: str = Form(""),
     client_phone2: str = Form(""),
     client_phone2_name: str = Form(""),
+    client_whatsapp: str = Form(""),
+    client_telegram: str = Form(""),
     client_email: str = Form(""),
     factory_id: int = Form(...),
     category: str = Form(...),
@@ -323,6 +325,8 @@ def order_new_submit(
         client_phone_name=client_phone_name.strip() or None,
         client_phone2=client_phone2.strip() or None,
         client_phone2_name=client_phone2_name.strip() or None,
+        client_whatsapp=client_whatsapp.strip() or None,
+        client_telegram=client_telegram.strip() or None,
         client_email=client_email.strip() or None,
         factory_name=factory.name, factory_email=factory.email,
         category=category, model=model.strip(),
@@ -477,6 +481,8 @@ def order_edit_submit(
     client_phone_name: str = Form(""),
     client_phone2: str = Form(""),
     client_phone2_name: str = Form(""),
+    client_whatsapp: str = Form(""),
+    client_telegram: str = Form(""),
     client_email: str = Form(""),
     factory_id: int = Form(...),
     category: str = Form(...),
@@ -542,6 +548,8 @@ def order_edit_submit(
     order.client_phone_name = client_phone_name.strip() or None
     order.client_phone2 = client_phone2.strip() or None
     order.client_phone2_name = client_phone2_name.strip() or None
+    order.client_whatsapp = client_whatsapp.strip() or None
+    order.client_telegram = client_telegram.strip() or None
     order.client_email = client_email.strip() or None
     order.factory_name = factory.name
     order.factory_email = factory.email

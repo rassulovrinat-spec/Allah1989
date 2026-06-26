@@ -41,6 +41,8 @@ class Order(Base):
     client_phone_name = Column(String(200))
     client_phone2 = Column(String(50))
     client_phone2_name = Column(String(200))
+    client_whatsapp = Column(String(100))
+    client_telegram = Column(String(100))
     client_email = Column(String(200))
     client_telegram_id = Column(String(50))
 

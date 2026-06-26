@@ -24,13 +24,17 @@
         <div class="card" style="margin-bottom:16px">
             <div class="card-header"><i class="bi bi-person"></i>Клиент</div>
             <div class="card-body">
+
+                <!-- Имя -->
+                <div class="form-group">
+                    <label>Имя клиента *</label>
+                    <input type="text" name="client_name" required
+                           value="{{ order.client_name if order else '' }}"
+                           placeholder="Иванов Иван Иванович">
+                </div>
+
+                <!-- Телефон 1 + ФИО -->
                 <div class="row">
-                    <div class="col form-group">
-                        <label>Имя клиента *</label>
-                        <input type="text" name="client_name" required
-                               value="{{ order.client_name if order else '' }}"
-                               placeholder="Иванов Иван Иванович">
-                    </div>
                     <div class="col form-group">
                         <label>Телефон</label>
                         <input type="tel" name="client_phone"
@@ -38,30 +42,56 @@
                                placeholder="+7 (900) 000-00-00">
                     </div>
                     <div class="col form-group">
-                        <label>ФИО (контакт 1)</label>
+                        <label>ФИО контакта</label>
                         <input type="text" name="client_phone_name"
                                value="{{ order.client_phone_name if order else '' }}"
                                placeholder="Иванов Иван Иванович">
                     </div>
+                </div>
+
+                <!-- Телефон 2 + ФИО -->
+                <div class="row">
                     <div class="col form-group">
-                        <label>Доп. телефон</label>
+                        <label>Второй номер</label>
                         <input type="tel" name="client_phone2"
                                value="{{ order.client_phone2 if order else '' }}"
                                placeholder="+7 (900) 000-00-00">
                     </div>
                     <div class="col form-group">
-                        <label>ФИО (доп. контакт)</label>
+                        <label>ФИО контакта</label>
                         <input type="text" name="client_phone2_name"
                                value="{{ order.client_phone2_name if order else '' }}"
                                placeholder="Петров Пётр Петрович">
                     </div>
                 </div>
+
+                <!-- Мессенджеры -->
+                <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 8px">
+                    <i class="bi bi-chat-dots"></i> Мессенджеры
+                </div>
+                <div class="row">
+                    <div class="col form-group">
+                        <label><i class="bi bi-whatsapp" style="color:#25D366"></i> WhatsApp</label>
+                        <input type="tel" name="client_whatsapp"
+                               value="{{ order.client_whatsapp if order else '' }}"
+                               placeholder="+7 (900) 000-00-00">
+                    </div>
+                    <div class="col form-group">
+                        <label><i class="bi bi-telegram" style="color:#229ED9"></i> Telegram</label>
+                        <input type="text" name="client_telegram"
+                               value="{{ order.client_telegram if order else '' }}"
+                               placeholder="+7 (900) 000-00-00 или @username">
+                    </div>
+                </div>
+
+                <!-- Email -->
                 <div class="form-group" style="margin-bottom:0">
                     <label>Email</label>
                     <input type="email" name="client_email"
                            value="{{ order.client_email if order else '' }}"
                            placeholder="client@example.com">
                 </div>
+
             </div>
         </div>
 
