@@ -1675,3 +1675,14 @@ def locations_stats(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("locations.html", ctx(request, db, user,
         rows=rows, grand_count=grand_count,
         grand_sum=grand_sum, grand_commission=grand_commission))
+
+
+@app.get("/delivery-prices", response_class=HTMLResponse)
+def delivery_prices(request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    import json as _json
+    path = os.path.join(BASE_DIR, "static", "delivery_prices.json")
+    data = _json.load(open(path, encoding="utf-8"))
+    return templates.TemplateResponse("delivery_prices.html", ctx(request, db, user, data=data))

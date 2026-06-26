@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% set active_page = 'delivery_prices' %}
+{% block title %}Стоимость доставки{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Стоимость доставки</div>
+        <div class="page-subtitle">Прайс-лист по направлениям — только для информации</div>
+    </div>
+</div>
+
+<!-- Поиск -->
+<div class="card" style="margin-bottom:16px">
+    <div class="card-body" style="padding:16px 20px">
+        <div style="position:relative">
+            <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:16px"></i>
+            <input type="text" id="delivery-search"
+                   placeholder="Введите от 3 букв — Альметьевск, Казань, Арск..."
+                   autocomplete="off"
+                   style="width:100%;padding:10px 16px 10px 40px;font-size:15px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);outline:none;transition:border-color .2s">
+        </div>
+        <div id="search-hint" style="font-size:12px;color:var(--text3);margin-top:6px;padding-left:2px">
+            Введите не менее 3 букв для поиска по всем направлениям
+        </div>
+    </div>
+</div>
+
+<!-- Результаты поиска -->
+<div id="search-results" style="display:none;margin-bottom:16px">
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-search"></i>
+            <span id="results-title">Результаты поиска</span>
+        </div>
+        <div id="results-container"></div>
+    </div>
+</div>
+
+<!-- Вкладки когда нет поиска -->
+<div id="tabs-section">
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
+        <button class="tab-btn active" onclick="switchTab('intercity')" id="tab-intercity"
+                style="padding:10px 20px;background:none;border:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--p);border-bottom:2px solid var(--p);margin-bottom:-2px;transition:all .2s">
+            <i class="bi bi-signpost-2"></i> Межгород
+            <span style="background:var(--p-light);color:var(--p);border-radius:20px;padding:1px 8px;font-size:12px;margin-left:4px">{{ data['МЕЖГОРОД']|length }}</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('suburb')" id="tab-suburb"
+                style="padding:10px 20px;background:none;border:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s">
+            <i class="bi bi-houses"></i> Пригород и Казань
+            <span style="background:var(--border);color:var(--text3);border-radius:20px;padding:1px 8px;font-size:12px;margin-left:4px">{{ data['ПРИГОРОД']|length }}</span>
+        </button>
+    </div>
+
+    <!-- Межгород -->
+    <div id="panel-intercity" class="card">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Направление</th>
+                        <th style="text-align:center;width:120px">Расстояние</th>
+                        <th style="text-align:right;width:150px">Стоимость</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data['МЕЖГОРОД'] %}
+                    <tr class="delivery-row" data-name="{{ item.name | lower }}">
+                        <td style="font-weight:600">
+                            <i class="bi bi-signpost" style="color:var(--text3);margin-right:6px"></i>
+                            {{ item.name }}
+                        </td>
+                        <td style="text-align:center;color:var(--text3)">
+                            {% if item.dist != '—' %}
+                            <span style="background:var(--surface2);border-radius:6px;padding:2px 8px;font-size:12px">
+                                {{ item.dist }} км
+                            </span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right">
+                            <span style="font-size:16px;font-weight:700;color:var(--p)">{{ item.price | int | string | replace("000", " 000") }} ₽</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Пригород -->
+    <div id="panel-suburb" class="card" style="display:none">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Направление</th>
+                        <th style="text-align:right;width:150px">Стоимость</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in data['ПРИГОРОД'] %}
+                    <tr class="delivery-row" data-name="{{ item.name | lower }}">
+                        <td style="font-weight:500">
+                            <i class="bi bi-house" style="color:var(--text3);margin-right:6px"></i>
+                            {{ item.name }}
+                        </td>
+                        <td style="text-align:right">
+                            <span style="font-size:16px;font-weight:700;color:#059669">{{ item.price | int | string | replace("000", " 000") }} ₽</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+const deliveryData = {{ data | tojson }};
+
+function switchTab(tab) {
+    document.getElementById('panel-intercity').style.display = tab === 'intercity' ? '' : 'none';
+    document.getElementById('panel-suburb').style.display   = tab === 'suburb'    ? '' : 'none';
+
+    document.getElementById('tab-intercity').style.color       = tab === 'intercity' ? 'var(--p)' : 'var(--text3)';
+    document.getElementById('tab-intercity').style.borderColor = tab === 'intercity' ? 'var(--p)' : 'transparent';
+    document.getElementById('tab-suburb').style.color          = tab === 'suburb'    ? 'var(--p)' : 'var(--text3)';
+    document.getElementById('tab-suburb').style.borderColor    = tab === 'suburb'    ? 'var(--p)' : 'transparent';
+}
+
+function formatPrice(p) {
+    return p.toLocaleString('ru-RU') + ' ₽';
+}
+
+const searchInput = document.getElementById('delivery-search');
+const searchResults = document.getElementById('search-results');
+const tabsSection = document.getElementById('tabs-section');
+const resultsContainer = document.getElementById('results-container');
+const resultsTitle = document.getElementById('results-title');
+const searchHint = document.getElementById('search-hint');
+
+searchInput.addEventListener('focus', function() {
+    this.style.borderColor = 'var(--p)';
+});
+searchInput.addEventListener('blur', function() {
+    this.style.borderColor = 'var(--border)';
+});
+
+searchInput.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+
+    if (q.length < 3) {
+        searchResults.style.display = 'none';
+        tabsSection.style.display = '';
+        searchHint.textContent = q.length === 0
+            ? 'Введите не менее 3 букв для поиска по всем направлениям'
+            : `Ещё ${3 - q.length} букв${q.length === 2 ? 'у' : 'ы'}...`;
+        return;
+    }
+
+    // Ищем по обоим разделам
+    const intercityMatches = deliveryData['МЕЖГОРОД'].filter(i => i.name.toLowerCase().includes(q));
+    const suburbMatches    = deliveryData['ПРИГОРОД'].filter(i => i.name.toLowerCase().includes(q));
+    const total = intercityMatches.length + suburbMatches.length;
+
+    tabsSection.style.display = 'none';
+    searchResults.style.display = '';
+    resultsTitle.textContent = total > 0
+        ? `Найдено: ${total} направлени${total === 1 ? 'е' : total < 5 ? 'я' : 'й'}`
+        : 'Ничего не найдено';
+
+    if (total === 0) {
+        resultsContainer.innerHTML = `
+            <div style="text-align:center;padding:40px;color:var(--text3)">
+                <i class="bi bi-search" style="font-size:32px;display:block;margin-bottom:8px"></i>
+                Направление <strong>"${this.value.trim()}"</strong> не найдено
+            </div>`;
+        return;
+    }
+
+    let html = '<table><thead><tr><th>Направление</th><th>Тип</th><th style="text-align:center">Расстояние</th><th style="text-align:right">Стоимость</th></tr></thead><tbody>';
+
+    function highlight(text, q) {
+        const idx = text.toLowerCase().indexOf(q);
+        if (idx < 0) return text;
+        return text.slice(0, idx) + '<mark style="background:#FEF08A;border-radius:2px;padding:0 1px">' + text.slice(idx, idx + q.length) + '</mark>' + text.slice(idx + q.length);
+    }
+
+    intercityMatches.forEach(i => {
+        html += `<tr>
+            <td style="font-weight:600"><i class="bi bi-signpost" style="color:var(--text3);margin-right:6px"></i>${highlight(i.name, q)}</td>
+            <td><span style="font-size:11px;background:var(--p-light);color:var(--p);border-radius:4px;padding:2px 6px">Межгород</span></td>
+            <td style="text-align:center;color:var(--text3)">${i.dist !== '—' ? i.dist + ' км' : '—'}</td>
+            <td style="text-align:right;font-size:16px;font-weight:700;color:var(--p)">${formatPrice(i.price)}</td>
+        </tr>`;
+    });
+    suburbMatches.forEach(i => {
+        html += `<tr>
+            <td style="font-weight:500"><i class="bi bi-house" style="color:var(--text3);margin-right:6px"></i>${highlight(i.name, q)}</td>
+            <td><span style="font-size:11px;background:#ECFDF5;color:#059669;border-radius:4px;padding:2px 6px">Пригород</span></td>
+            <td style="text-align:center;color:var(--text3)">—</td>
+            <td style="text-align:right;font-size:16px;font-weight:700;color:#059669">${formatPrice(i.price)}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    resultsContainer.innerHTML = html;
+});
+
+// Фокус на поиск при нажатии /
+document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        searchInput.focus();
+    }
+});
+</script>
+{% endblock %}
