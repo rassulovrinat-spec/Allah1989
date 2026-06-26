@@ -46,11 +46,11 @@ templates.env.filters["date"] = lambda x: x.strftime("%d.%m.%Y") if x else "—"
 templates.env.filters["rub"]  = lambda x: f"{x:,.0f} ₽".replace(",", " ") if x else "—"
 
 def _working_days_since(dt):
-    from datetime import timedelta
+    from datetime import date as _date, timedelta
     if not dt:
         return 0
     start = dt.date() if hasattr(dt, "date") else dt
-    today = date.today()
+    today = _date.today()
     count = 0
     cur = start
     while cur < today:
