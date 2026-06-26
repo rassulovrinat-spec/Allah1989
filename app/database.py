@@ -42,6 +42,8 @@ def _migrate():
     add_col("orders", "order_amount", "REAL")
     add_col("orders", "manager_id", "INTEGER")
     add_col("orders", "manager_username", "TEXT")
+    add_col("orders", "deleted_at", "DATETIME")
+    add_col("orders", "deleted_by", "TEXT")
     add_col("users", "telegram_id", "TEXT")
     add_col("factories", "reply_email", "TEXT")
 

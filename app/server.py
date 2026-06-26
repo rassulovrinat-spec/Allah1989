@@ -84,9 +84,12 @@ def get_settings(db: Session):
 
 
 def ctx(request: Request, db: Session, user: User, **extra):
+    import time
     s = get_settings(db)
+    trash_count = db.query(Order).filter(Order.deleted_at != None).count()
     return {"request": request, "me": user, "theme": s.theme,
-            "primary_color": s.primary_color, "status_labels": STATUS_LABELS, **extra}
+            "primary_color": s.primary_color, "status_labels": STATUS_LABELS,
+            "trash_count": trash_count, "now_ts": time.time(), **extra}
 
 
 def log(db: Session, user: User, action: str, request: Request = None):
@@ -116,6 +119,22 @@ def _parse_float(val: str):
 @app.on_event("startup")
 def startup():
     init_db()
+    # Автоочистка корзины: физически удаляем заявки старше 90 дней
+    from datetime import timedelta
+    db = next(get_db())
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=90)
+        expired = db.query(Order).filter(Order.deleted_at != None, Order.deleted_at < cutoff).all()
+        for order in expired:
+            order_dir = os.path.join(UPLOADS_DIR, str(order.id))
+            if os.path.exists(order_dir):
+                shutil.rmtree(order_dir)
+            db.query(OrderAttachment).filter(OrderAttachment.order_id == order.id).delete()
+            db.delete(order)
+        if expired:
+            db.commit()
+    finally:
+        db.close()
 
 
 # ── auth ──────────────────────────────────────────────────────────────────────
@@ -166,7 +185,7 @@ def orders_list(request: Request, status: str = None, search: str = None,
     user = get_user(request, db)
     if not user:
         return RedirectResponse("/login", 303)
-    q = db.query(Order)
+    q = db.query(Order).filter(Order.deleted_at == None)
     if user.role != "admin":
         q = q.filter(Order.manager_username == user.username)
     if status:
@@ -193,7 +212,7 @@ def orders_list(request: Request, status: str = None, search: str = None,
         except ValueError:
             pass
     orders = q.order_by(Order.created_at.desc()).all()
-    counts = {s: db.query(Order).filter(Order.status == s).count() for s in STATUS_LABELS}
+    counts = {s: db.query(Order).filter(Order.deleted_at == None, Order.status == s).count() for s in STATUS_LABELS}
     managers = [r[0] for r in db.query(Order.manager_username).filter(
         Order.manager_username.isnot(None)).distinct().all()]
     factories = db.query(Factory).order_by(Factory.name).all()
@@ -213,7 +232,7 @@ def export_orders(request: Request, status: str = None, db: Session = Depends(ge
     user = get_user(request, db)
     if not user:
         return RedirectResponse("/login", 303)
-    q = db.query(Order)
+    q = db.query(Order).filter(Order.deleted_at == None)
     if user.role != "admin":
         q = q.filter(Order.manager_username == user.username)
     if status:
@@ -831,7 +850,7 @@ def my_stats(request: Request, db: Session = Depends(get_db)):
     now = datetime.utcnow()
     month_start = datetime(now.year, now.month, 1)
 
-    all_orders = db.query(Order).filter(Order.manager_username == user.username).all()
+    all_orders = db.query(Order).filter(Order.deleted_at == None, Order.manager_username == user.username).all()
     month_orders = [o for o in all_orders
                     if o.factory_confirmed_at and o.factory_confirmed_at >= month_start
                     and o.status in ("accepted", "shipped", "delivered")]
@@ -1037,15 +1056,16 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user or user.role != "admin":
         return RedirectResponse("/orders", 303)
-    counts = {s: db.query(Order).filter(Order.status == s).count() for s in STATUS_LABELS}
+    counts = {s: db.query(Order).filter(Order.deleted_at == None, Order.status == s).count() for s in STATUS_LABELS}
     total_revenue = sum(
-        o.order_amount or 0 for o in db.query(Order).filter(Order.status == "accepted").all()
+        o.order_amount or 0 for o in db.query(Order).filter(Order.deleted_at == None, Order.status == "accepted").all()
     )
     # Динамика за 6 месяцев
     now = datetime.utcnow()
     month_start = datetime(now.year, now.month, 1)
     month_revenue = sum(
         o.order_amount or 0 for o in db.query(Order).filter(
+            Order.deleted_at == None,
             Order.status == "accepted",
             Order.factory_confirmed_at >= month_start,
         ).all()
@@ -1059,6 +1079,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         last_day = calendar.monthrange(year, month)[1]
         last = datetime(year, month, last_day, 23, 59, 59)
         month_orders = db.query(Order).filter(
+            Order.deleted_at == None,
             Order.factory_confirmed_at >= first,
             Order.factory_confirmed_at <= last,
             Order.status == "accepted"
@@ -1073,15 +1094,16 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     # Топ менеджеры
     mgr_rows = []
     for (uname,) in db.query(Order.manager_username).filter(
-            Order.manager_username.isnot(None), Order.status == "accepted").distinct().all():
+            Order.deleted_at == None, Order.manager_username.isnot(None), Order.status == "accepted").distinct().all():
         mgr_orders = db.query(Order).filter(
-            Order.manager_username == uname, Order.status == "accepted").all()
+            Order.deleted_at == None, Order.manager_username == uname, Order.status == "accepted").all()
         total = sum(o.order_amount or 0 for o in mgr_orders)
         mgr_rows.append({"username": uname, "orders": len(mgr_orders),
                          "total": round(total), "commission": round(total * COMMISSION_RATE)})
     mgr_rows.sort(key=lambda x: x["total"], reverse=True)
     # Ожидают ответа > 3 дней
     overdue = db.query(Order).filter(
+        Order.deleted_at == None,
         Order.status == "sent_to_factory",
         Order.sent_to_factory_at <= datetime.utcnow() - timedelta(days=3)
     ).all()
@@ -1339,27 +1361,24 @@ def api_factories(db: Session = Depends(get_db)):
     return [{"id": f.id, "name": f.name} for f in db.query(Factory).order_by(Factory.name).all()]
 
 
-# ── Удаление заявки ───────────────────────────────────────────────────────────
+# ── Удаление заявки (в корзину) ───────────────────────────────────────────────
 
 @app.post("/orders/{order_id}/delete")
 def delete_order(order_id: int, request: Request, db: Session = Depends(get_db)):
     user = get_user(request, db)
-    if not user or user.role != "admin":
-        return RedirectResponse("/orders", 303)
-    order = db.query(Order).filter(Order.id == order_id).first()
+    if not user:
+        return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id, Order.deleted_at == None).first()
     if not order:
         return RedirectResponse("/orders?err=Заявка не найдена", 303)
-    # Удаляем файлы с диска
-    order_dir = os.path.join(UPLOADS_DIR, str(order_id))
-    if os.path.exists(order_dir):
-        shutil.rmtree(order_dir)
-    # Удаляем из БД
-    db.query(OrderAttachment).filter(OrderAttachment.order_id == order_id).delete()
-    db.query(OrderHistory.__class__).filter_by(order_id=order_id).delete() if False else None
-    log(db, user, f"Удалена заявка №{order_id} — {order.client_name}", request)
-    db.delete(order)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse("/orders?err=Нет прав", 303)
+    order.deleted_at = datetime.utcnow()
+    order.deleted_by = user.username
+    log_history(db, order.id, user.username, comment="Заявка перемещена в корзину")
     db.commit()
-    return RedirectResponse("/orders?msg=Заявка удалена", 303)
+    log(db, user, f"Заявка №{order_id} перемещена в корзину", request)
+    return RedirectResponse("/orders?msg=Заявка перемещена в корзину", 303)
 
 
 # ── Удаление вложения ─────────────────────────────────────────────────────────
@@ -1381,6 +1400,61 @@ def delete_attachment(order_id: int, att_id: int, request: Request, db: Session 
         db.commit()
         log(db, user, f"Удалено вложение «{att.original_name}» из заявки №{order_id}", request)
     return RedirectResponse(f"/orders/{order_id}?msg=Файл удалён", 303)
+
+
+# ── Корзина ───────────────────────────────────────────────────────────────────
+
+@app.get("/trash", response_class=HTMLResponse)
+def trash_page(request: Request, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    cutoff = datetime.utcnow() - timedelta(days=90)
+    q = db.query(Order).filter(Order.deleted_at != None, Order.deleted_at >= cutoff)
+    if user.role != "admin":
+        q = q.filter(Order.manager_username == user.username)
+    orders = q.order_by(Order.deleted_at.desc()).all()
+    trash_count = db.query(Order).filter(Order.deleted_at != None, Order.deleted_at < cutoff).count()
+    return templates.TemplateResponse("trash.html", ctx(request, db, user,
+        orders=orders, expired_count=trash_count))
+
+
+@app.post("/trash/{order_id}/restore")
+def restore_order(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id, Order.deleted_at != None).first()
+    if not order:
+        return RedirectResponse("/trash?err=Заявка не найдена", 303)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse("/trash?err=Нет прав", 303)
+    order.deleted_at = None
+    order.deleted_by = None
+    log_history(db, order.id, user.username, comment="Заявка восстановлена из корзины")
+    db.commit()
+    log(db, user, f"Заявка №{order_id} восстановлена из корзины", request)
+    return RedirectResponse(f"/orders/{order_id}?msg=Заявка восстановлена", 303)
+
+
+@app.post("/trash/empty")
+def empty_trash(request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/trash", 303)
+    deleted_orders = db.query(Order).filter(Order.deleted_at != None).all()
+    count = 0
+    for order in deleted_orders:
+        order_dir = os.path.join(UPLOADS_DIR, str(order.id))
+        if os.path.exists(order_dir):
+            shutil.rmtree(order_dir)
+        db.query(OrderAttachment).filter(OrderAttachment.order_id == order.id).delete()
+        db.delete(order)
+        count += 1
+    db.commit()
+    log(db, user, f"Корзина очищена: удалено {count} заявок", request)
+    return RedirectResponse(f"/trash?msg=Корзина очищена ({count} заявок)", 303)
 
 
 # ── Отмена заявки ─────────────────────────────────────────────────────────────

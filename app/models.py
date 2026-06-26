@@ -86,6 +86,8 @@ class Order(Base):
     sent_to_factory_at = Column(DateTime)
     factory_confirmed_at = Column(DateTime)
     confirmation_token = Column(String(36), unique=True)
+    deleted_at = Column(DateTime)
+    deleted_by = Column(String(100))
 
 
 class OrderAttachment(Base):

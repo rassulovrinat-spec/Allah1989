@@ -500,6 +500,12 @@
             <a href="/pricelist" class="nav-item {% if active_page == 'pricelist' %}active{% endif %}">
                 <i class="bi bi-table"></i> Прайс-листы
             </a>
+            <a href="/trash" class="nav-item {% if active_page == 'trash' %}active{% endif %}" style="position:relative">
+                <i class="bi bi-trash"></i> Корзина
+                {% if trash_count > 0 %}
+                <span style="margin-left:auto;background:#EF4444;color:white;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">{{ trash_count }}</span>
+                {% endif %}
+            </a>
 
             <hr class="nav-divider">
             <div class="nav-section">Аналитика</div>
