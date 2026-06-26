@@ -124,9 +124,9 @@
                     <th>Фабрика</th>
                     <th>Модель</th>
                     <th>Способ оплаты</th>
+                    <th>Сумма</th>
                     <th>Аванс</th>
                     <th>Остаток</th>
-                    <th>Сумма</th>
                     <th>Менеджер</th>
                     <th>Статус</th>
                     <th></th>
@@ -157,9 +157,9 @@
                     <td class="text-sm">{{ o.factory_name }}</td>
                     <td class="fw-600 text-sm">{{ o.model }}</td>
                     <td class="text-sm text-muted">{{ o.payment_method or '—' }}</td>
+                    <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
                     <td class="text-sm">{{ o.advance_payment | rub if o.advance_payment else '—' }}</td>
                     <td class="text-sm">{{ o.balance_payment | rub if o.balance_payment else '—' }}</td>
-                    <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
                     <td class="text-sm text-muted">{{ o.manager_username or '—' }}</td>
                     <td>
                         {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
