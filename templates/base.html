@@ -281,8 +281,34 @@
         .badge-shipped  { background: #EDE9FE; color: #5B21B6; }
         .badge-delivered{ background: #D1FAE5; color: #065F46; }
         /* Подсветка строк таблицы по статусу */
-        tr.row-new      { background: #FFFEF0 !important; }
-        tr.row-new:hover{ background: #FEF9C3 !important; }
+        tr.row-new         { background: #FFFEF0 !important; }
+        tr.row-new:hover   { background: #FEF9C3 !important; }
+        tr.row-overdue     { background: #FEF2F2 !important; }
+        tr.row-overdue:hover { background: #FEE2E2 !important; }
+        tr.row-warning     { background: #EFF6FF !important; }
+        tr.row-warning:hover { background: #DBEAFE !important; }
+        .deadline-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; border-radius: 50%;
+            font-size: 10px; font-weight: 700; cursor: help;
+            margin-left: 4px; vertical-align: middle; position: relative;
+        }
+        .deadline-icon.red  { background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; }
+        .deadline-icon.blue { background: #DBEAFE; color: #1D4ED8; border: 1px solid #BFDBFE; }
+        .deadline-icon[title]:hover::after {
+            content: attr(title);
+            position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+            background: #1E293B; color: #fff; font-size: 11px; font-weight: 500;
+            padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+            z-index: 100; pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,.2);
+        }
+        .deadline-icon[title]:hover::before {
+            content: '';
+            position: absolute; bottom: calc(100% + 1px); left: 50%; transform: translateX(-50%);
+            border: 5px solid transparent; border-top-color: #1E293B;
+            z-index: 100; pointer-events: none;
+        }
         .badge-admin    { background: var(--p-light); color: var(--p); }
         .badge-manager  { background: #F3F4F6; color: #374151; }
         .badge-active   { background: #DCFCE7; color: #166534; }

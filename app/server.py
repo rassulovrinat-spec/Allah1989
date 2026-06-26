@@ -45,6 +45,22 @@ templates.env.filters["dt"]   = lambda x: x.strftime("%d.%m.%Y %H:%M") if x else
 templates.env.filters["date"] = lambda x: x.strftime("%d.%m.%Y") if x else "—"
 templates.env.filters["rub"]  = lambda x: f"{x:,.0f} ₽".replace(",", " ") if x else "—"
 
+def _working_days_since(dt):
+    from datetime import timedelta
+    if not dt:
+        return 0
+    start = dt.date() if hasattr(dt, "date") else dt
+    today = date.today()
+    count = 0
+    cur = start
+    while cur < today:
+        if cur.weekday() < 5:
+            count += 1
+        cur += timedelta(days=1)
+    return count
+
+templates.env.filters["work_days"] = _working_days_since
+
 STATIC_DIR  = os.path.join(BASE_DIR, "static")
 UPLOADS_DIR = os.environ.get("UPLOADS_DIR", "/app/data/uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)

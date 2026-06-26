@@ -152,8 +152,13 @@
             </thead>
             <tbody>
                 {% for o in orders %}
-                {% set overdue = o.delivery_date and o.delivery_date < today_str and o.status not in ('delivered','cancelled','rejected') %}
-                <tr class="{% if o.status == 'new' %}row-new{% endif %} row-link"
+                {% set overdue = o.delivery_date and o.delivery_date < today_str and o.status not in ('delivered','cancelled','rejected','shipped') %}
+                {% set active = o.status not in ('shipped','delivered','cancelled','rejected') %}
+                {% set wd = o.created_at | work_days %}
+                {% set is_overdue_30 = active and wd >= 30 %}
+                {% set is_warning_5  = active and wd >= 25 and wd < 30 %}
+                {% set days_left = 30 - wd %}
+                <tr class="{% if is_overdue_30 %}row-overdue{% elif is_warning_5 %}row-warning{% elif o.status == 'new' %}row-new{% endif %} row-link"
                     onclick="location.href='/orders/{{ o.id }}'" style="cursor:pointer">
                     <td class="text-muted text-sm">{{ o.id }}</td>
                     <td class="text-sm text-muted" style="white-space:nowrap">{{ o.created_at | dt }}</td>
@@ -181,7 +186,7 @@
                     <td class="text-sm">{{ o.advance_payment | rub if o.advance_payment else '—' }}</td>
                     <td class="text-sm">{{ o.balance_payment | rub if o.balance_payment else '—' }}</td>
                     <td class="text-sm text-muted">{{ o.manager_username or '—' }}</td>
-                    <td>
+                    <td style="white-space:nowrap">
                         {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
                         {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">На фабрике</span>
                         {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
@@ -189,6 +194,11 @@
                         {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
                         {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
                         {% elif o.status == 'cancelled' %}<span class="badge" style="background:#F3F4F6;color:#6B7280">Отменена</span>
+                        {% endif %}
+                        {% if is_overdue_30 %}
+                        <span class="deadline-icon red" title="Срок поставки нарушен — прошло {{ wd }} рабочих дней без отгрузки">!</span>
+                        {% elif is_warning_5 %}
+                        <span class="deadline-icon blue" title="До нарушения срока поставки остаётся {{ days_left }} рабочих {{ 'день' if days_left == 1 else ('дня' if days_left <= 4 else 'дней') }} — примите меры">!</span>
                         {% endif %}
                     </td>
                 </tr>
