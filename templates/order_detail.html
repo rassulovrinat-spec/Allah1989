@@ -65,20 +65,18 @@
                 <div class="detail-row">
                     <div class="detail-label">Телефон</div>
                     <div class="detail-value">
-                        {{ order.client_phone or '—' }}
-                        {% if order.client_phone_name %}
-                        <span class="text-muted text-sm" style="margin-left:8px">— {{ order.client_phone_name }}</span>
-                        {% endif %}
+                        {% if order.client_phone %}
+                        <a href="tel:{{ order.client_phone }}" style="color:var(--p);font-weight:600">{{ order.client_phone }}</a>
+                        {% if order.client_phone_name %}<span class="text-muted text-sm" style="margin-left:8px">— {{ order.client_phone_name }}</span>{% endif %}
+                        {% else %}—{% endif %}
                     </div>
                 </div>
                 {% if order.client_phone2 %}
                 <div class="detail-row">
                     <div class="detail-label">Доп. телефон</div>
                     <div class="detail-value">
-                        {{ order.client_phone2 }}
-                        {% if order.client_phone2_name %}
-                        <span class="text-muted text-sm" style="margin-left:8px">— {{ order.client_phone2_name }}</span>
-                        {% endif %}
+                        <a href="tel:{{ order.client_phone2 }}" style="color:var(--p);font-weight:600">{{ order.client_phone2 }}</a>
+                        {% if order.client_phone2_name %}<span class="text-muted text-sm" style="margin-left:8px">— {{ order.client_phone2_name }}</span>{% endif %}
                     </div>
                 </div>
                 {% endif %}
@@ -377,17 +375,25 @@
 
         {% if order.status not in ('cancelled', 'delivered', 'rejected') %}
         <div class="card" style="margin-bottom:16px">
-            <div class="card-body">
-                <form method="post" action="/orders/{{ order.id }}/cancel">
-                    <div class="form-group" style="margin-bottom:8px">
-                        <label>Причина отмены (необязательно)</label>
-                        <input type="text" name="reason" placeholder="Укажите причину...">
-                    </div>
-                    <button class="btn btn-sm" style="width:100%;background:#F3F4F6;color:#374151;border:1px solid #D1D5DB"
-                            onclick="return confirm('Отменить заявку?')">
-                        <i class="bi bi-slash-circle"></i>Отменить заявку
-                    </button>
-                </form>
+            <div class="card-body" style="padding:12px 16px">
+                <button type="button" id="cancel-toggle"
+                        onclick="var f=document.getElementById('cancel-form');var open=f.style.display!=='none';f.style.display=open?'none':'block';this.style.color=open?'#6B7280':'#DC2626'"
+                        style="width:100%;background:none;border:none;cursor:pointer;text-align:left;font-size:13px;color:#6B7280;display:flex;align-items:center;gap:6px;padding:0;font-family:inherit">
+                    <i class="bi bi-slash-circle"></i>Отменить заявку
+                    <i class="bi bi-chevron-down" style="margin-left:auto;font-size:10px"></i>
+                </button>
+                <div id="cancel-form" style="display:none;margin-top:12px">
+                    <form method="post" action="/orders/{{ order.id }}/cancel">
+                        <div class="form-group" style="margin-bottom:8px">
+                            <label>Причина отмены (необязательно)</label>
+                            <input type="text" name="reason" placeholder="Укажите причину...">
+                        </div>
+                        <button class="btn btn-sm" style="width:100%;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA"
+                                onclick="return confirm('Отменить заявку №{{ order.id }}?')">
+                            <i class="bi bi-slash-circle"></i>Подтвердить отмену
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
         {% endif %}

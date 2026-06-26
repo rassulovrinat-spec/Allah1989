@@ -171,7 +171,13 @@
                     <td>
                         <div class="fw-600">{{ o.client_name }}</div>
                         {% if o.client_phone %}
-                        <div class="text-muted text-sm">{{ o.client_phone }}</div>
+                        <div class="text-muted text-sm">
+                            <a href="tel:{{ o.client_phone }}" onclick="event.stopPropagation()"
+                               style="color:inherit;text-decoration:none"
+                               onmouseover="this.style.color='var(--p)'" onmouseout="this.style.color='inherit'">
+                                {{ o.client_phone }}
+                            </a>
+                        </div>
                         {% endif %}
                     </td>
                     <td class="text-sm">{{ o.factory_name }}</td>
@@ -246,6 +252,15 @@
 {% endif %}
 
 <script>
+// Горячая клавиша / — фокус на поиск
+document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        var s = document.querySelector('input[name=search]');
+        if (s) { s.focus(); s.select(); }
+    }
+});
+
 // Статус-табы сохраняют текущие фильтры поиска
 (function() {
     const params = new URLSearchParams(window.location.search);

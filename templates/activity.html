@@ -10,6 +10,14 @@
     </div>
 </div>
 
+<!-- Фильтр-табы -->
+<div class="filter-tabs" style="margin-bottom:12px">
+    <a href="#" class="filter-tab active" data-filter="all">Все</a>
+    <a href="#" class="filter-tab" data-filter="login">Входы в систему</a>
+    <a href="#" class="filter-tab" data-filter="order">Заявки</a>
+    <a href="#" class="filter-tab" data-filter="other">Прочее</a>
+</div>
+
 <div class="card">
     <div class="table-wrap">
         <table>
@@ -22,9 +30,10 @@
                     <th>IP</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="activity-tbody">
                 {% for entry in logs %}
-                <tr>
+                {% set cat = 'login' if 'Вход' in entry.action or 'Выход' in entry.action else ('order' if 'заявк' in entry.action.lower() else 'other') %}
+                <tr data-cat="{{ cat }}">
                     <td class="text-sm text-muted" style="white-space:nowrap">{{ entry.created_at | dt }}</td>
                     <td>
                         <div style="display:flex;align-items:center;gap:8px">
@@ -41,7 +50,21 @@
                         <span class="badge badge-manager">Менеджер</span>
                         {% endif %}
                     </td>
-                    <td class="text-sm">{{ entry.action }}</td>
+                    <td class="text-sm">
+                        {% if 'Вход' in entry.action %}
+                        <span style="color:#059669"><i class="bi bi-box-arrow-in-right"></i> {{ entry.action }}</span>
+                        {% elif 'Выход' in entry.action %}
+                        <span style="color:#6B7280"><i class="bi bi-box-arrow-right"></i> {{ entry.action }}</span>
+                        {% elif 'Создана' in entry.action %}
+                        <span style="color:var(--p)"><i class="bi bi-plus-circle"></i> {{ entry.action }}</span>
+                        {% elif 'Удал' in entry.action or 'корзин' in entry.action.lower() %}
+                        <span style="color:#DC2626"><i class="bi bi-trash"></i> {{ entry.action }}</span>
+                        {% elif 'Восстановл' in entry.action %}
+                        <span style="color:#059669"><i class="bi bi-arrow-counterclockwise"></i> {{ entry.action }}</span>
+                        {% else %}
+                        {{ entry.action }}
+                        {% endif %}
+                    </td>
                     <td class="text-muted text-sm">{{ entry.ip_address or '—' }}</td>
                 </tr>
                 {% else %}
@@ -58,4 +81,18 @@
         </table>
     </div>
 </div>
+
+<script>
+document.querySelectorAll('.filter-tab[data-filter]').forEach(tab => {
+    tab.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.filter-tab[data-filter]').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        const f = this.dataset.filter;
+        document.querySelectorAll('#activity-tbody tr[data-cat]').forEach(row => {
+            row.style.display = (f === 'all' || row.dataset.cat === f) ? '' : 'none';
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -46,18 +46,21 @@ templates.env.filters["date"] = lambda x: x.strftime("%d.%m.%Y") if x else "—"
 templates.env.filters["rub"]  = lambda x: f"{x:,.0f} ₽".replace(",", " ") if x else "—"
 
 def _working_days_since(dt):
-    from datetime import date as _date, timedelta
+    from datetime import date as _date
     if not dt:
         return 0
     start = dt.date() if hasattr(dt, "date") else dt
     today = _date.today()
-    count = 0
-    cur = start
-    while cur < today:
-        if cur.weekday() < 5:
-            count += 1
-        cur += timedelta(days=1)
-    return count
+    if start >= today:
+        return 0
+    total = (today - start).days
+    full_weeks, rem = divmod(total, 7)
+    work = full_weeks * 5
+    start_dow = start.weekday()
+    for i in range(rem):
+        if (start_dow + i) % 7 < 5:
+            work += 1
+    return work
 
 templates.env.filters["work_days"] = _working_days_since
 
@@ -107,10 +110,14 @@ def ctx(request: Request, db: Session, user: User, **extra):
     if user.role != "admin":
         trash_q = trash_q.filter(Order.manager_username == user.username)
     trash_count = trash_q.count()
+    new_q = db.query(Order).filter(Order.deleted_at == None, Order.status == "new")
+    if user.role != "admin":
+        new_q = new_q.filter(Order.manager_username == user.username)
+    new_count = new_q.count()
     return {"request": request, "me": user, "theme": s.theme,
             "primary_color": s.primary_color, "status_labels": STATUS_LABELS,
-            "trash_count": trash_count, "now_ts": time.time(),
-            "today_str": date.today().isoformat(), **extra}
+            "trash_count": trash_count, "new_count": new_count,
+            "now_ts": time.time(), "today_str": date.today().isoformat(), **extra}
 
 
 def log(db: Session, user: User, action: str, request: Request = None):
