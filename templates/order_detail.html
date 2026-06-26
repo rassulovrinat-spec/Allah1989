@@ -22,9 +22,11 @@
         </div>
     </div>
     <div style="display:flex;gap:8px">
+        {% if is_owner %}
         <a href="/orders/{{ order.id }}/edit" class="btn btn-outline btn-sm">
             <i class="bi bi-pencil"></i>Редактировать
         </a>
+        {% endif %}
         <a href="/orders/{{ order.id }}/pdf" class="btn btn-outline btn-sm" target="_blank">
             <i class="bi bi-file-earmark-pdf"></i>PDF
         </a>
@@ -33,7 +35,7 @@
                 <i class="bi bi-copy"></i>Копия
             </button>
         </form>
-        {% if me.role == 'admin' or order.manager_username == me.username %}
+        {% if is_owner %}
         <form method="post" action="/orders/{{ order.id }}/delete" style="margin:0"
               onsubmit="return confirm('Переместить заявку №{{ order.id }} в корзину?')">
             <button type="submit" class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">
@@ -283,16 +285,19 @@
                         <a href="/orders/{{ order.id }}/download/{{ a.filename }}" class="btn btn-outline btn-sm">
                             <i class="bi bi-download"></i>
                         </a>
+                        {% if is_owner %}
                         <form method="post" action="/orders/{{ order.id }}/attachments/{{ a.id }}/delete" style="margin:0"
                               onsubmit="return confirm('Удалить файл?')">
                             <button type="submit" class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;padding:6px 10px">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
                 {% endif %}
+                {% if is_owner %}
                 <form method="post" action="/orders/{{ order.id }}/upload" enctype="multipart/form-data"
                       style="display:flex;gap:8px;align-items:flex-end">
                     <div class="form-group" style="margin:0;flex:1">
@@ -303,13 +308,15 @@
                         <i class="bi bi-upload"></i>Загрузить
                     </button>
                 </form>
+                {% endif %}
             </div>
         </div>
     </div>
 
     <!-- Right: actions + timeline -->
     <div class="col col-4">
-        <!-- Actions (admin: confirm+reject, manager: reject only) -->
+        <!-- Actions (admin: confirm+reject, owner: reject+cancel) -->
+        {% if is_owner %}
         {% if order.status == 'new' %}
         <div class="card" style="margin-bottom:16px;border-color:#FDE68A">
             <div class="card-header" style="background:#FFFBEB;color:#92400E">
@@ -378,6 +385,7 @@
                 </form>
             </div>
         </div>
+        {% endif %}
         {% endif %}
 
         {% if order.status == 'accepted' and me.role == 'admin' %}

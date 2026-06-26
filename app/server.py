@@ -400,9 +400,10 @@ def order_detail(order_id: int, request: Request, db: Session = Depends(get_db))
         raise HTTPException(404)
     attachments = db.query(OrderAttachment).filter(OrderAttachment.order_id == order_id).all()
     commission = round(order.order_amount * COMMISSION_RATE, 2) if order.order_amount else None
+    is_owner = user.role == "admin" or order.manager_username == user.username
     return templates.TemplateResponse("order_detail.html", ctx(request, db, user,
         order=order, attachments=attachments, commission=commission,
-        commission_rate=int(COMMISSION_RATE * 100)))
+        commission_rate=int(COMMISSION_RATE * 100), is_owner=is_owner))
 
 
 @app.post("/orders/{order_id}/confirm")
@@ -438,6 +439,8 @@ def reject_order(order_id: int, request: Request, reason: str = Form(""),
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order or order.status not in [OrderStatus.new, OrderStatus.sent_to_factory]:
         return RedirectResponse(f"/orders/{order_id}?err=Нельзя отклонить", 303)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse(f"/orders/{order_id}?err=Нет прав для изменения чужой заявки", 303)
     old = order.status
     order.status = OrderStatus.rejected
     order.rejection_reason = reason or None
@@ -457,6 +460,8 @@ def upload_attachment(order_id: int, request: Request,
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(404)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse(f"/orders/{order_id}?err=Нет прав для изменения чужой заявки", 303)
     order_dir = os.path.join(UPLOADS_DIR, str(order_id))
     os.makedirs(order_dir, exist_ok=True)
     ext = os.path.splitext(file.filename or "")[1]
@@ -1388,6 +1393,9 @@ def delete_attachment(order_id: int, att_id: int, request: Request, db: Session 
     user = get_user(request, db)
     if not user:
         return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if order and user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse(f"/orders/{order_id}?err=Нет прав для изменения чужой заявки", 303)
     att = db.query(OrderAttachment).filter(
         OrderAttachment.id == att_id,
         OrderAttachment.order_id == order_id
@@ -1468,6 +1476,8 @@ def cancel_order(order_id: int, request: Request,
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return RedirectResponse("/orders", 303)
+    if user.role != "admin" and order.manager_username != user.username:
+        return RedirectResponse(f"/orders/{order_id}?err=Нет прав для изменения чужой заявки", 303)
     old = order.status
     order.status = "cancelled"
     order.rejection_reason = reason.strip() or None
