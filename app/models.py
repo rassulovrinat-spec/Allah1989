@@ -17,6 +17,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime)
     telegram_id = Column(String(50))  # Telegram chat_id менеджера
+    location = Column(String(100))    # торговая точка менеджера
 
 
 class Factory(Base):
@@ -80,6 +81,7 @@ class Order(Base):
     order_amount = Column(Float)           # итоговая сумма (аванс + остаток)
     manager_id = Column(Integer)           # id менеджера из User
     manager_username = Column(String(100)) # логин менеджера
+    location = Column(String(100))         # торговая точка
 
     status = Column(String(50), default="new")
     rejection_reason = Column(Text)

@@ -22,6 +22,13 @@ from app.price_parser import parse_price_file
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 COMMISSION_RATE = 0.05
 
+LOCATIONS = {
+    "mega":   "Мега Мебель",
+    "bazar1": "Мебельный Базар",
+    "bazar2": "Мебельный Базар (2 этаж)",
+    "port":   "ТЦ Порт",
+}
+
 
 def send_telegram_message(chat_id, text: str):
     """Отправить сообщение менеджеру в Telegram через Bot API."""
@@ -102,21 +109,35 @@ def get_settings(db: Session):
     return s
 
 
+def get_selected_location(request: Request, user: User) -> str:
+    """Возвращает активную точку: для менеджера — своя, для админа — из cookie."""
+    if user.role != "admin":
+        return user.location or ""
+    return request.cookies.get("selected_location", "")
+
+
 def ctx(request: Request, db: Session, user: User, **extra):
     import time
     from datetime import date
     s = get_settings(db)
+    sel_loc = get_selected_location(request, user)
+
     trash_q = db.query(Order).filter(Order.deleted_at != None)
     if user.role != "admin":
         trash_q = trash_q.filter(Order.manager_username == user.username)
     trash_count = trash_q.count()
+
     new_q = db.query(Order).filter(Order.deleted_at == None, Order.status == "new")
     if user.role != "admin":
         new_q = new_q.filter(Order.manager_username == user.username)
+    elif sel_loc:
+        new_q = new_q.filter(Order.location == sel_loc)
     new_count = new_q.count()
+
     return {"request": request, "me": user, "theme": s.theme,
             "primary_color": s.primary_color, "status_labels": STATUS_LABELS,
             "trash_count": trash_count, "new_count": new_count,
+            "locations": LOCATIONS, "selected_location": sel_loc,
             "now_ts": time.time(), "today_str": date.today().isoformat(), **extra}
 
 
@@ -193,6 +214,21 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     return resp
 
 
+@app.post("/set-location")
+def set_location(request: Request, location: str = Form(default=""),
+                 db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    referer = request.headers.get("referer", "/orders")
+    resp = RedirectResponse(referer, 303)
+    if location:
+        resp.set_cookie("selected_location", location, httponly=True, max_age=86400 * 30)
+    else:
+        resp.delete_cookie("selected_location")
+    return resp
+
+
 @app.get("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
     user = get_user(request, db)
@@ -216,9 +252,12 @@ def orders_list(request: Request, status: str = None, search: str = None,
     user = get_user(request, db)
     if not user:
         return RedirectResponse("/login", 303)
+    sel_loc = get_selected_location(request, user)
     q = db.query(Order).filter(Order.deleted_at == None)
     if user.role != "admin":
         q = q.filter(Order.manager_username == user.username)
+    elif sel_loc:
+        q = q.filter(Order.location == sel_loc)
     if status:
         q = q.filter(Order.status == status)
     if search:
@@ -248,6 +287,8 @@ def orders_list(request: Request, status: str = None, search: str = None,
     base_count_q = db.query(Order).filter(Order.deleted_at == None)
     if user.role != "admin":
         base_count_q = base_count_q.filter(Order.manager_username == user.username)
+    elif sel_loc:
+        base_count_q = base_count_q.filter(Order.location == sel_loc)
     counts = {s: base_count_q.filter(Order.status == s).count() for s in STATUS_LABELS}
     managers = [r[0] for r in db.query(Order.manager_username).filter(
         Order.manager_username.isnot(None)).distinct().all()]
@@ -417,6 +458,7 @@ def order_new_submit(
         delivery_apartment=delivery_apartment.strip() or None,
         delivery_address_full=delivery_address_full.strip() or None,
         manager_id=user.id, manager_username=user.username,
+        location=user.location or "",
     )
     db.add(order); db.commit(); db.refresh(order)
     log_history(db, order.id, user.username, comment="Заявка создана через веб-форму")
@@ -1236,6 +1278,7 @@ def users_list(request: Request, db: Session = Depends(get_db)):
 @app.post("/users/add")
 def add_user(request: Request, username: str = Form(...), display_name: str = Form(""),
              password: str = Form(...), role: str = Form("manager"),
+             location: str = Form(""),
              db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user or user.role != "admin":
@@ -1245,7 +1288,8 @@ def add_user(request: Request, username: str = Form(...), display_name: str = Fo
         return templates.TemplateResponse("users.html", ctx(request, db, user,
             users=users, error=f"Пользователь «{username}» уже существует"))
     db.add(User(username=username.strip(), password_hash=hash_password(password),
-                display_name=display_name.strip() or None, role=role))
+                display_name=display_name.strip() or None, role=role,
+                location=location or None))
     db.commit()
     log(db, user, f"Создан пользователь «{username}» (роль: {role})", request)
     return RedirectResponse("/users?msg=Пользователь создан", 303)
@@ -1599,3 +1643,35 @@ def send_reminders(request: Request, db: Session = Depends(get_db)):
                 sent += 1
     log(db, user, f"Отправлено {sent} напоминаний о сроках", request)
     return RedirectResponse(f"/orders?msg=Отправлено напоминаний: {sent}", 303)
+
+
+@app.get("/locations", response_class=HTMLResponse)
+def locations_stats(request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    rows = []
+    for loc_key, loc_name in LOCATIONS.items():
+        orders = db.query(Order).filter(
+            Order.deleted_at == None, Order.location == loc_key).all()
+        total_count = len(orders)
+        total_sum = sum(o.order_amount or 0 for o in orders)
+        commission = round(total_sum * COMMISSION_RATE, 2)
+        active = sum(1 for o in orders if o.status not in ("delivered","cancelled","rejected","shipped"))
+        delivered = sum(1 for o in orders if o.status == "delivered")
+        new_count = sum(1 for o in orders if o.status == "new")
+        by_status = {s: sum(1 for o in orders if o.status == s) for s in STATUS_LABELS}
+        managers = db.query(User).filter(User.location == loc_key, User.role == "manager", User.is_active == True).count()
+        rows.append({
+            "key": loc_key, "name": loc_name,
+            "total_count": total_count, "total_sum": total_sum,
+            "commission": commission, "active": active,
+            "delivered": delivered, "new_count": new_count,
+            "by_status": by_status, "managers": managers,
+        })
+    grand_count = sum(r["total_count"] for r in rows)
+    grand_sum = sum(r["total_sum"] for r in rows)
+    grand_commission = round(grand_sum * COMMISSION_RATE, 2)
+    return templates.TemplateResponse("locations.html", ctx(request, db, user,
+        rows=rows, grand_count=grand_count,
+        grand_sum=grand_sum, grand_commission=grand_commission))

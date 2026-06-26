@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% set active_page = 'locations' %}
+{% block title %}Аналитика точек{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <div class="page-title">Аналитика торговых точек</div>
+        <div class="page-subtitle">Сравнение показателей по всем точкам</div>
+    </div>
+</div>
+
+<!-- Карточки-итог -->
+<div class="stats" style="margin-bottom:24px">
+    <div class="stat-card">
+        <div class="stat-value">{{ grand_count }}</div>
+        <div class="stat-label">Заявок всего</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--p)">
+        <div class="stat-value" style="color:var(--p)">{{ grand_sum | rub }}</div>
+        <div class="stat-label">Общая сумма</div>
+    </div>
+    <div class="stat-card" style="border-color:#10B981">
+        <div class="stat-value" style="color:#059669">{{ grand_commission | rub }}</div>
+        <div class="stat-label">Комиссия (5%)</div>
+    </div>
+</div>
+
+<!-- Таблица по точкам -->
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Торговая точка</th>
+                    <th style="text-align:center">Менеджеров</th>
+                    <th style="text-align:center">Заявок</th>
+                    <th style="text-align:center">Новых</th>
+                    <th style="text-align:center">В работе</th>
+                    <th style="text-align:center">Доставлено</th>
+                    <th style="text-align:right">Сумма</th>
+                    <th style="text-align:right">Комиссия</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                {% set pct = ((r.total_sum / grand_sum * 100) | round(1)) if grand_sum > 0 else 0 %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <div style="width:10px;height:10px;border-radius:50%;background:{% if loop.index==1 %}#4F46E5{% elif loop.index==2 %}#10B981{% elif loop.index==3 %}#F59E0B{% else %}#EF4444{% endif %};flex-shrink:0"></div>
+                            <span class="fw-600">{{ r.name }}</span>
+                        </div>
+                    </td>
+                    <td style="text-align:center">
+                        <span class="text-muted text-sm">{{ r.managers }}</span>
+                    </td>
+                    <td style="text-align:center">
+                        <span class="fw-600">{{ r.total_count }}</span>
+                    </td>
+                    <td style="text-align:center">
+                        {% if r.new_count > 0 %}
+                        <span class="badge badge-new">{{ r.new_count }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center">
+                        {% if r.active > 0 %}
+                        <span style="color:#2563EB;font-weight:600">{{ r.active }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center">
+                        {% if r.delivered > 0 %}
+                        <span style="color:#059669;font-weight:600">{{ r.delivered }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right">
+                        <span class="fw-600">{{ r.total_sum | rub }}</span>
+                        {% if pct > 0 %}
+                        <div class="text-muted text-sm">{{ pct }}%</div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right">
+                        <span style="color:#059669">{{ r.commission | rub }}</span>
+                    </td>
+                    <td>
+                        <form method="post" action="/set-location" style="margin:0">
+                            <input type="hidden" name="location" value="{{ r.key }}">
+                            <button type="submit" class="btn btn-outline btn-sm"
+                                    style="font-size:11px;padding:4px 10px">
+                                <i class="bi bi-funnel"></i>Открыть
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:var(--surface2);font-weight:700">
+                    <td colspan="2">Итого</td>
+                    <td style="text-align:center">{{ grand_count }}</td>
+                    <td colspan="3"></td>
+                    <td style="text-align:right">{{ grand_sum | rub }}</td>
+                    <td style="text-align:right;color:#059669">{{ grand_commission | rub }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- Мини-диаграмма доли каждой точки -->
+{% if grand_sum > 0 %}
+<div class="card" style="margin-top:16px">
+    <div class="card-header"><i class="bi bi-bar-chart-line"></i>Доля каждой точки по сумме заявок</div>
+    <div class="card-body" style="padding:20px 24px">
+        {% for r in rows %}
+        {% set pct = ((r.total_sum / grand_sum * 100) | round(1)) if grand_sum > 0 else 0 %}
+        <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span class="text-sm fw-600">{{ r.name }}</span>
+                <span class="text-sm text-muted">{{ r.total_sum | rub }} · {{ pct }}%</span>
+            </div>
+            <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:{{ pct }}%;background:{% if loop.index==1 %}#4F46E5{% elif loop.index==2 %}#10B981{% elif loop.index==3 %}#F59E0B{% else %}#EF4444{% endif %};border-radius:4px;transition:width 0.4s ease"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

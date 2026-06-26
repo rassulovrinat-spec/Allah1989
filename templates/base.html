@@ -595,6 +595,31 @@
             prregina
         </div>
 
+        <!-- Переключатель точки (только для администратора) -->
+        {% if me.role == 'admin' %}
+        <div style="padding:8px 12px 4px">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Торговая точка</div>
+            <form method="post" action="/set-location" id="loc-form">
+                <select name="location" onchange="document.getElementById('loc-form').submit()"
+                        style="width:100%;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text1);cursor:pointer">
+                    <option value="" {% if not selected_location %}selected{% endif %}>Все точки</option>
+                    {% for key, name in locations.items() %}
+                    <option value="{{ key }}" {% if selected_location == key %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        {% else %}
+        {% if me.location %}
+        <div style="padding:6px 16px 0">
+            <div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px">
+                <i class="bi bi-geo-alt-fill" style="color:var(--p)"></i>
+                {{ locations.get(me.location, me.location) }}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
         <nav class="sidebar-nav">
             <div class="nav-section">Основное</div>
             <a href="/orders" class="nav-item {% if active_page == 'orders' %}active{% endif %}">
@@ -625,17 +650,18 @@
 
             <hr class="nav-divider">
             <div class="nav-section">Аналитика</div>
-
             <a href="/dashboard" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
                 <i class="bi bi-speedometer2"></i> Дашборд
             </a>
             <a href="/report" class="nav-item {% if active_page == 'report' %}active{% endif %}">
                 <i class="bi bi-bar-chart"></i> Отчёт по менеджерам
             </a>
+            <a href="/locations" class="nav-item {% if active_page == 'locations' %}active{% endif %}">
+                <i class="bi bi-geo-alt"></i> Торговые точки
+            </a>
 
             <hr class="nav-divider">
             <div class="nav-section">Управление</div>
-
             <a href="/users" class="nav-item {% if active_page == 'users' %}active{% endif %}">
                 <i class="bi bi-people"></i> Сотрудники
             </a>

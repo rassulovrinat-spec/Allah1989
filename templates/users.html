@@ -23,8 +23,8 @@
                         <tr>
                             <th>Пользователь</th>
                             <th>Роль</th>
+                            <th>Точка</th>
                             <th>Последний вход</th>
-                            <th>Создан</th>
                             <th>Статус</th>
                             <th>Действия</th>
                         </tr>
@@ -50,8 +50,15 @@
                                 <span class="badge badge-manager">Менеджер</span>
                                 {% endif %}
                             </td>
+                            <td class="text-sm text-muted">
+                                {% if u.location %}
+                                <span style="display:flex;align-items:center;gap:4px">
+                                    <i class="bi bi-geo-alt-fill" style="color:var(--p);font-size:10px"></i>
+                                    {{ locations.get(u.location, u.location) }}
+                                </span>
+                                {% else %}—{% endif %}
+                            </td>
                             <td class="text-muted text-sm">{{ u.last_login_at | dt }}</td>
-                            <td class="text-muted text-sm">{{ u.created_at | date }}</td>
                             <td>
                                 {% if u.is_active %}
                                 <span class="badge badge-active">Активен</span>
@@ -149,6 +156,15 @@
                         <select name="role">
                             <option value="manager">Менеджер</option>
                             <option value="admin">Администратор</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Торговая точка</label>
+                        <select name="location">
+                            <option value="">— не указана —</option>
+                            {% for key, name in locations.items() %}
+                            <option value="{{ key }}">{{ name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width:100%">
