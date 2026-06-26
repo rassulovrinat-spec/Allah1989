@@ -112,9 +112,24 @@
             </div>
             <div class="form-group">
                 <label>Пароль</label>
-                <input type="password" name="password" autocomplete="current-password" required>
+                <div style="position:relative">
+                    <input type="password" name="password" id="pwd" autocomplete="current-password" required
+                           style="padding-right:40px">
+                    <button type="button" id="pwd-toggle"
+                            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                                   background:none;border:none;cursor:pointer;color:#94A3B8;padding:4px;
+                                   display:flex;align-items:center;font-size:16px"
+                            onclick="var i=document.getElementById('pwd');var b=document.getElementById('pwd-toggle');
+                                     if(i.type==='password'){i.type='text';b.innerHTML='<i class=\'bi bi-eye-slash\'></i>'}
+                                     else{i.type='password';b.innerHTML='<i class=\'bi bi-eye\'></i>'}">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
             </div>
             <button type="submit" class="btn-login">Войти</button>
+            <div style="text-align:center;margin-top:14px;font-size:12px;color:#94A3B8">
+                Забыли пароль? Обратитесь к администратору
+            </div>
         </form>
     </div>
 </div>

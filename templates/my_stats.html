@@ -97,8 +97,8 @@
             <div class="card-body">
                 <canvas id="statusChart" height="180"></canvas>
                 <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-                    {% set status_colors = {'new': '#F59E0B', 'sent_to_factory': '#3B82F6', 'accepted': '#10B981', 'shipped': '#8B5CF6', 'delivered': '#059669', 'rejected': '#EF4444'} %}
-                    {% set status_names = {'new': 'Новые', 'sent_to_factory': 'Отправлено', 'accepted': 'Принято', 'shipped': 'Отгружено', 'delivered': 'Доставлено', 'rejected': 'Отклонено'} %}
+                    {% set status_colors = {'new': '#F59E0B', 'sent_to_factory': '#3B82F6', 'accepted': '#10B981', 'shipped': '#8B5CF6', 'delivered': '#059669', 'rejected': '#EF4444', 'cancelled': '#9CA3AF'} %}
+                    {% set status_names = {'new': 'Новые', 'sent_to_factory': 'Отправлено', 'accepted': 'Принято', 'shipped': 'Отгружено', 'delivered': 'Доставлено', 'rejected': 'Отклонено', 'cancelled': 'Отменена'} %}
                     {% for s, cnt in counts.items() %}
                     <div style="display:flex;justify-content:space-between;align-items:center">
                         <span style="display:flex;align-items:center;gap:6px;font-size:12px">
@@ -133,7 +133,7 @@ new Chart(document.getElementById('myChart'), {
     options: {
         responsive: true,
         plugins: { legend: { position: 'top' } },
-        scales: { y: { ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'К ₽' : v + ' ₽' } } }
+        scales: { y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => { if(v===0) return '0 ₽'; if(v>=1000000) return (v/1000000).toFixed(1)+'М ₽'; if(v>=1000) return (v/1000).toFixed(0)+'К ₽'; return v+' ₽'; } } } }
     }
 });
 
@@ -141,10 +141,10 @@ const counts = {{ counts | tojson }};
 new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Новые','Отправлено','Принято','Отгружено','Доставлено','Отклонено'],
-        datasets: [{ data: [counts.new, counts.sent_to_factory, counts.accepted,
-                            counts.shipped||0, counts.delivered||0, counts.rejected],
-                     backgroundColor: ['#F59E0B','#3B82F6','#10B981','#8B5CF6','#059669','#EF4444'],
+        labels: ['Новые','Отправлено','Принято','Отгружено','Доставлено','Отклонено','Отменена'],
+        datasets: [{ data: [counts.new||0, counts.sent_to_factory||0, counts.accepted||0,
+                            counts.shipped||0, counts.delivered||0, counts.rejected||0, counts.cancelled||0],
+                     backgroundColor: ['#F59E0B','#3B82F6','#10B981','#8B5CF6','#059669','#EF4444','#9CA3AF'],
                      borderWidth: 0 }]
     },
     options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }

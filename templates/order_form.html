@@ -356,12 +356,48 @@
             <div class="card-header"><i class="bi bi-paperclip"></i>Вложения</div>
             <div class="card-body">
                 <div class="form-group" style="margin:0">
-                    <label>Прикрепить файлы (Excel, PDF, Word)</label>
-                    <input type="file" name="files" multiple accept=".xlsx,.xls,.pdf,.doc,.docx,.jpg,.jpeg,.png">
-                    <div class="text-muted text-sm" style="margin-top:4px">Можно выбрать несколько файлов</div>
+                    <input type="file" name="files" id="file-input" multiple
+                           accept=".xlsx,.xls,.pdf,.doc,.docx,.jpg,.jpeg,.png"
+                           style="display:none">
+                    <div id="drop-zone"
+                         style="border:2px dashed var(--border);border-radius:10px;padding:28px 20px;
+                                text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)"
+                         onclick="document.getElementById('file-input').click()">
+                        <i class="bi bi-cloud-upload" style="font-size:28px;color:var(--text3);display:block;margin-bottom:8px"></i>
+                        <div style="font-weight:600;color:var(--text);margin-bottom:4px">Перетащите файлы сюда</div>
+                        <div class="text-muted text-sm">или нажмите для выбора · Excel, PDF, Word, JPG</div>
+                    </div>
+                    <div id="file-list" style="display:none;margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
                 </div>
             </div>
         </div>
+        <script>
+        (function(){
+            const dz = document.getElementById('drop-zone');
+            const inp = document.getElementById('file-input');
+            const fl = document.getElementById('file-list');
+            function renderFiles(files) {
+                if (!files.length) { fl.style.display='none'; return; }
+                fl.style.display='flex';
+                fl.innerHTML = '';
+                Array.from(files).forEach(f => {
+                    const d = document.createElement('div');
+                    d.style='display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:13px';
+                    d.innerHTML = '<i class="bi bi-file-earmark" style="color:var(--p)"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + f.name + '</span><span class="text-muted text-sm">' + (f.size/1024).toFixed(0) + ' KB</span>';
+                    fl.appendChild(d);
+                });
+            }
+            inp.addEventListener('change', () => renderFiles(inp.files));
+            dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor='var(--p)'; dz.style.background='var(--p-light)'; });
+            dz.addEventListener('dragleave', () => { dz.style.borderColor='var(--border)'; dz.style.background='var(--surface2)'; });
+            dz.addEventListener('drop', e => {
+                e.preventDefault(); dz.style.borderColor='var(--border)'; dz.style.background='var(--surface2)';
+                const dt = new DataTransfer();
+                Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+                inp.files = dt.files; renderFiles(dt.files);
+            });
+        })();
+        </script>
         {% endif %}
 
         <!-- Действия -->

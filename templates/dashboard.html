@@ -92,30 +92,15 @@
             <div class="card-body">
                 <canvas id="statusChart" height="160"></canvas>
                 <div style="margin-top:16px;display:flex;flex-direction:column;gap:6px">
+                    {% set slist = [('new','#F59E0B','Новые'),('sent_to_factory','#3B82F6','На фабрике'),('accepted','#10B981','Принято'),('shipped','#8B5CF6','Отгружено'),('delivered','#059669','Доставлено'),('rejected','#EF4444','Отклонено'),('cancelled','#9CA3AF','Отменена')] %}
+                    {% for key, clr, lbl in slist %}
                     <div style="display:flex;justify-content:space-between;align-items:center">
                         <span style="display:flex;align-items:center;gap:6px;font-size:12px">
-                            <span style="width:10px;height:10px;border-radius:50%;background:#F59E0B;display:inline-block"></span>Новые
+                            <span style="width:10px;height:10px;border-radius:50%;background:{{ clr }};display:inline-block"></span>{{ lbl }}
                         </span>
-                        <strong>{{ counts['new'] }}</strong>
+                        <strong>{{ counts[key] if counts[key] is defined else 0 }}</strong>
                     </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
-                            <span style="width:10px;height:10px;border-radius:50%;background:#3B82F6;display:inline-block"></span>Отправлено
-                        </span>
-                        <strong>{{ counts['sent_to_factory'] }}</strong>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
-                            <span style="width:10px;height:10px;border-radius:50%;background:#10B981;display:inline-block"></span>Принято
-                        </span>
-                        <strong>{{ counts['accepted'] }}</strong>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
-                            <span style="width:10px;height:10px;border-radius:50%;background:#EF4444;display:inline-block"></span>Отклонено
-                        </span>
-                        <strong>{{ counts['rejected'] }}</strong>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -197,10 +182,15 @@ new Chart(document.getElementById('revenueChart'), {
         plugins: { legend: { position: 'top' } },
         scales: {
             y: {
+                beginAtZero: true,
                 ticks: {
-                    callback: v => v >= 1000000
-                        ? (v/1000000).toFixed(1) + 'М ₽'
-                        : v >= 1000 ? (v/1000).toFixed(0) + 'К ₽' : v + ' ₽'
+                    maxTicksLimit: 6,
+                    callback: v => {
+                        if (v === 0) return '0 ₽';
+                        if (v >= 1000000) return (v/1000000).toFixed(1) + 'М ₽';
+                        if (v >= 1000) return (v/1000).toFixed(0) + 'К ₽';
+                        return v + ' ₽';
+                    }
                 }
             }
         }
@@ -211,17 +201,20 @@ const counts = {{ counts | tojson }};
 new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Новые', 'Отправлено', 'Принято', 'Отклонено'],
+        labels: ['Новые','На фабрике','Принято','Отгружено','Доставлено','Отклонено','Отменена'],
         datasets: [{
-            data: [counts.new, counts.sent_to_factory, counts.accepted, counts.rejected],
-            backgroundColor: ['#F59E0B','#3B82F6','#10B981','#EF4444'],
+            data: [counts.new||0, counts.sent_to_factory||0, counts.accepted||0,
+                   counts.shipped||0, counts.delivered||0, counts.rejected||0, counts.cancelled||0],
+            backgroundColor: ['#F59E0B','#3B82F6','#10B981','#8B5CF6','#059669','#EF4444','#9CA3AF'],
             borderWidth: 0,
         }]
     },
     options: {
         responsive: true,
         cutout: '65%',
-        plugins: { legend: { display: false } }
+        plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.raw }
+        }}
     }
 });
 </script>
