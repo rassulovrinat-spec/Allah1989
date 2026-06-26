@@ -15,7 +15,7 @@
     </div>
 </div>
 
-<form method="post" action="{% if order %}/orders/{{ order.id }}/edit{% else %}/orders/new{% endif %}">
+<form method="post" action="{% if order %}/orders/{{ order.id }}/edit{% else %}/orders/new{% endif %}" enctype="multipart/form-data">
 <div class="row">
     <!-- Левая колонка -->
     <div class="col col-8">
@@ -349,6 +349,20 @@
                 </div>
             </div>
         </div>
+
+        {% if not order %}
+        <!-- Вложения (только для новой заявки) -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-paperclip"></i>Вложения</div>
+            <div class="card-body">
+                <div class="form-group" style="margin:0">
+                    <label>Прикрепить файлы (Excel, PDF, Word)</label>
+                    <input type="file" name="files" multiple accept=".xlsx,.xls,.pdf,.doc,.docx,.jpg,.jpeg,.png">
+                    <div class="text-muted text-sm" style="margin-top:4px">Можно выбрать несколько файлов</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Действия -->
         <div class="card">

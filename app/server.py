@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 from datetime import datetime
+from typing import List, Optional
 from fastapi import FastAPI, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
@@ -308,6 +309,7 @@ def order_new_submit(
     delivery_apartment: str = Form(""),
     delivery_address_full: str = Form(""),
     comments: str = Form(""),
+    files: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
 ):
     user = get_user(request, db)
@@ -352,6 +354,17 @@ def order_new_submit(
     )
     db.add(order); db.commit(); db.refresh(order)
     log_history(db, order.id, user.username, comment="Заявка создана через веб-форму")
+    # Сохраняем вложения
+    for f in files:
+        if f.filename:
+            order_dir = os.path.join(UPLOADS_DIR, str(order.id))
+            os.makedirs(order_dir, exist_ok=True)
+            ext = os.path.splitext(f.filename)[1]
+            saved_name = f"{uuid.uuid4().hex}{ext}"
+            with open(os.path.join(order_dir, saved_name), "wb") as out:
+                shutil.copyfileobj(f.file, out)
+            db.add(OrderAttachment(order_id=order.id, filename=saved_name,
+                                   original_name=f.filename, uploaded_by=user.username))
     db.commit()
     log(db, user, f"Создана заявка №{order.id} — {client_name}", request)
     return RedirectResponse(f"/orders/{order.id}?msg=Заявка создана", 303)
