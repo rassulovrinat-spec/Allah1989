@@ -245,7 +245,10 @@ def orders_list(request: Request, status: str = None, search: str = None,
     page = max(0, page)
     total = q.count()
     orders = q.order_by(Order.created_at.desc()).offset(page * PAGE_SIZE).limit(PAGE_SIZE).all()
-    counts = {s: db.query(Order).filter(Order.deleted_at == None, Order.status == s).count() for s in STATUS_LABELS}
+    base_count_q = db.query(Order).filter(Order.deleted_at == None)
+    if user.role != "admin":
+        base_count_q = base_count_q.filter(Order.manager_username == user.username)
+    counts = {s: base_count_q.filter(Order.status == s).count() for s in STATUS_LABELS}
     managers = [r[0] for r in db.query(Order.manager_username).filter(
         Order.manager_username.isnot(None)).distinct().all()]
     factories = db.query(Factory).order_by(Factory.name).all()
