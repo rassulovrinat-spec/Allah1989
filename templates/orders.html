@@ -139,7 +139,7 @@
             </thead>
             <tbody>
                 {% for o in orders %}
-                <tr>
+                <tr class="{% if o.status == 'new' %}row-new{% endif %}">
                     <td class="text-muted text-sm">{{ o.id }}</td>
                     <td class="text-sm text-muted" style="white-space:nowrap">{{ o.created_at | dt }}</td>
                     <td class="text-sm" style="white-space:nowrap">
