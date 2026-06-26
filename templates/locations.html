@@ -1,16 +1,25 @@
 {% extends "base.html" %}
 {% set active_page = 'locations' %}
-{% block title %}Аналитика точек{% endblock %}
+{% block title %}Торговые точки{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div>
-        <div class="page-title">Аналитика торговых точек</div>
-        <div class="page-subtitle">Сравнение показателей по всем точкам</div>
+        <div class="page-title">Торговые точки</div>
+        <div class="page-subtitle">Аналитика и показатели по каждой точке</div>
     </div>
+    {% if selected_location %}
+    <form method="post" action="/set-location">
+        <input type="hidden" name="location" value="">
+        <input type="hidden" name="redirect_to" value="/locations">
+        <button type="submit" class="btn btn-outline btn-sm">
+            <i class="bi bi-x-circle"></i>Показать все точки
+        </button>
+    </form>
+    {% endif %}
 </div>
 
-<!-- Карточки-итог -->
+<!-- Итоговые карточки -->
 <div class="stats" style="margin-bottom:24px">
     <div class="stat-card">
         <div class="stat-value">{{ grand_count }}</div>
@@ -24,115 +33,144 @@
         <div class="stat-value" style="color:#059669">{{ grand_commission | rub }}</div>
         <div class="stat-label">Комиссия (5%)</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ rows | length }}</div>
+        <div class="stat-label">Активных точек</div>
+    </div>
 </div>
 
-<!-- Таблица по точкам -->
+<!-- Карточки точек -->
+{% set colors = ['#4F46E5','#10B981','#F59E0B','#EF4444'] %}
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px">
+    {% for r in rows %}
+    {% set color = colors[loop.index0 % 4] %}
+    {% set pct = ((r.total_sum / grand_sum * 100) | round(1)) if grand_sum > 0 else 0 %}
+    <div class="card" style="border-top:3px solid {{ color }};margin-bottom:0">
+        <div class="card-body" style="padding:20px 24px">
+            <!-- Заголовок -->
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text1)">{{ r.name }}</div>
+                    <div style="font-size:12px;color:var(--text3);margin-top:2px">
+                        {{ r.managers }} менеджер{{ 'а' if r.managers in [2,3,4] else ('ов' if r.managers not in [1] else '') }}
+                    </div>
+                </div>
+                <form method="post" action="/set-location" style="margin:0">
+                    <input type="hidden" name="location" value="{{ r.key }}">
+                    <input type="hidden" name="redirect_to" value="/orders">
+                    <button type="submit" class="btn btn-sm" style="background:{{ color }}15;color:{{ color }};border:1px solid {{ color }}40;font-size:12px">
+                        <i class="bi bi-funnel"></i>Открыть заявки
+                    </button>
+                </form>
+            </div>
+
+            <!-- Ключевые цифры -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+                <div style="text-align:center;background:var(--surface2);border-radius:8px;padding:10px 8px">
+                    <div style="font-size:20px;font-weight:700;color:var(--text1)">{{ r.total_count }}</div>
+                    <div style="font-size:11px;color:var(--text3)">Заявок</div>
+                </div>
+                <div style="text-align:center;background:var(--surface2);border-radius:8px;padding:10px 8px">
+                    <div style="font-size:20px;font-weight:700;color:#2563EB">{{ r.active }}</div>
+                    <div style="font-size:11px;color:var(--text3)">В работе</div>
+                </div>
+                <div style="text-align:center;background:var(--surface2);border-radius:8px;padding:10px 8px">
+                    <div style="font-size:20px;font-weight:700;color:#059669">{{ r.delivered }}</div>
+                    <div style="font-size:11px;color:var(--text3)">Доставлено</div>
+                </div>
+            </div>
+
+            <!-- Сумма и комиссия -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div>
+                    <div style="font-size:18px;font-weight:700;color:{{ color }}">{{ r.total_sum | rub }}</div>
+                    <div style="font-size:11px;color:var(--text3)">комиссия {{ r.commission | rub }}</div>
+                </div>
+                {% if r.new_count > 0 %}
+                <span class="badge badge-new">{{ r.new_count }} новых</span>
+                {% endif %}
+            </div>
+
+            <!-- Прогресс-бар доли -->
+            {% if grand_sum > 0 %}
+            <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="font-size:11px;color:var(--text3)">Доля от общей выручки</span>
+                    <span style="font-size:11px;font-weight:600;color:{{ color }}">{{ pct }}%</span>
+                </div>
+                <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+                    <div style="height:100%;width:{{ pct }}%;background:{{ color }};border-radius:3px;transition:width .4s ease"></div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Сводная таблица -->
 <div class="card">
+    <div class="card-header"><i class="bi bi-table"></i>Сводная таблица по статусам</div>
     <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Торговая точка</th>
-                    <th style="text-align:center">Менеджеров</th>
-                    <th style="text-align:center">Заявок</th>
-                    <th style="text-align:center">Новых</th>
-                    <th style="text-align:center">В работе</th>
+                    <th>Точка</th>
+                    <th style="text-align:center">Новые</th>
+                    <th style="text-align:center">На фабрике</th>
+                    <th style="text-align:center">Принято</th>
+                    <th style="text-align:center">Отгружено</th>
                     <th style="text-align:center">Доставлено</th>
-                    <th style="text-align:right">Сумма</th>
-                    <th style="text-align:right">Комиссия</th>
-                    <th></th>
+                    <th style="text-align:center">Отклонено</th>
+                    <th style="text-align:right">Итого</th>
                 </tr>
             </thead>
             <tbody>
                 {% for r in rows %}
-                {% set pct = ((r.total_sum / grand_sum * 100) | round(1)) if grand_sum > 0 else 0 %}
                 <tr>
-                    <td>
-                        <div style="display:flex;align-items:center;gap:10px">
-                            <div style="width:10px;height:10px;border-radius:50%;background:{% if loop.index==1 %}#4F46E5{% elif loop.index==2 %}#10B981{% elif loop.index==3 %}#F59E0B{% else %}#EF4444{% endif %};flex-shrink:0"></div>
-                            <span class="fw-600">{{ r.name }}</span>
-                        </div>
+                    <td class="fw-600 text-sm">{{ r.name }}</td>
+                    <td style="text-align:center">
+                        {% if r.by_status.new %}
+                        <span class="badge badge-new">{{ r.by_status.new }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
                     </td>
                     <td style="text-align:center">
-                        <span class="text-muted text-sm">{{ r.managers }}</span>
+                        {% if r.by_status.sent_to_factory %}
+                        <span class="badge badge-sent">{{ r.by_status.sent_to_factory }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
                     </td>
                     <td style="text-align:center">
-                        <span class="fw-600">{{ r.total_count }}</span>
+                        {% if r.by_status.accepted %}
+                        <span class="badge badge-accepted">{{ r.by_status.accepted }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
                     </td>
                     <td style="text-align:center">
-                        {% if r.new_count > 0 %}
-                        <span class="badge badge-new">{{ r.new_count }}</span>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
+                        {% if r.by_status.shipped %}
+                        <span class="badge badge-shipped">{{ r.by_status.shipped }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
                     </td>
                     <td style="text-align:center">
-                        {% if r.active > 0 %}
-                        <span style="color:#2563EB;font-weight:600">{{ r.active }}</span>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
+                        {% if r.by_status.delivered %}
+                        <span class="badge badge-delivered">{{ r.by_status.delivered }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
                     </td>
                     <td style="text-align:center">
-                        {% if r.delivered > 0 %}
-                        <span style="color:#059669;font-weight:600">{{ r.delivered }}</span>
-                        {% else %}
-                        <span class="text-muted">—</span>
-                        {% endif %}
+                        {% if r.by_status.rejected %}
+                        <span style="color:#DC2626;font-weight:600">{{ r.by_status.rejected }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
                     </td>
-                    <td style="text-align:right">
-                        <span class="fw-600">{{ r.total_sum | rub }}</span>
-                        {% if pct > 0 %}
-                        <div class="text-muted text-sm">{{ pct }}%</div>
-                        {% endif %}
-                    </td>
-                    <td style="text-align:right">
-                        <span style="color:#059669">{{ r.commission | rub }}</span>
-                    </td>
-                    <td>
-                        <form method="post" action="/set-location" style="margin:0">
-                            <input type="hidden" name="location" value="{{ r.key }}">
-                            <button type="submit" class="btn btn-outline btn-sm"
-                                    style="font-size:11px;padding:4px 10px">
-                                <i class="bi bi-funnel"></i>Открыть
-                            </button>
-                        </form>
-                    </td>
+                    <td style="text-align:right;font-weight:700">{{ r.total_count }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="background:var(--surface2);font-weight:700">
-                    <td colspan="2">Итого</td>
-                    <td style="text-align:center">{{ grand_count }}</td>
-                    <td colspan="3"></td>
-                    <td style="text-align:right">{{ grand_sum | rub }}</td>
-                    <td style="text-align:right;color:#059669">{{ grand_commission | rub }}</td>
-                    <td></td>
+                    <td>Итого</td>
+                    <td colspan="6"></td>
+                    <td style="text-align:right">{{ grand_count }}</td>
                 </tr>
             </tfoot>
         </table>
     </div>
 </div>
-
-<!-- Мини-диаграмма доли каждой точки -->
-{% if grand_sum > 0 %}
-<div class="card" style="margin-top:16px">
-    <div class="card-header"><i class="bi bi-bar-chart-line"></i>Доля каждой точки по сумме заявок</div>
-    <div class="card-body" style="padding:20px 24px">
-        {% for r in rows %}
-        {% set pct = ((r.total_sum / grand_sum * 100) | round(1)) if grand_sum > 0 else 0 %}
-        <div style="margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <span class="text-sm fw-600">{{ r.name }}</span>
-                <span class="text-sm text-muted">{{ r.total_sum | rub }} · {{ pct }}%</span>
-            </div>
-            <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-                <div style="height:100%;width:{{ pct }}%;background:{% if loop.index==1 %}#4F46E5{% elif loop.index==2 %}#10B981{% elif loop.index==3 %}#F59E0B{% else %}#EF4444{% endif %};border-radius:4px;transition:width 0.4s ease"></div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
 {% endblock %}

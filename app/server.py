@@ -216,12 +216,12 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
 
 @app.post("/set-location")
 def set_location(request: Request, location: str = Form(default=""),
+                 redirect_to: str = Form(default="/orders"),
                  db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user or user.role != "admin":
         return RedirectResponse("/orders", 303)
-    referer = request.headers.get("referer", "/orders")
-    resp = RedirectResponse(referer, 303)
+    resp = RedirectResponse(redirect_to, 303)
     if location:
         resp.set_cookie("selected_location", location, httponly=True, max_age=86400 * 30)
     else:
