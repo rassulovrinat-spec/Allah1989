@@ -16,6 +16,11 @@
            class="btn btn-outline btn-sm">
             <i class="bi bi-file-earmark-excel"></i>Экспорт Excel
         </a>
+        {% if me.role == 'admin' %}
+        <a href="/admin/reminders" class="btn btn-outline btn-sm" title="Отправить напоминания по истекающим срокам">
+            <i class="bi bi-bell"></i>Напомнить
+        </a>
+        {% endif %}
     </div>
 </div>
 
@@ -168,6 +173,7 @@
                         {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
                         {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
                         {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
+                        {% elif o.status == 'cancelled' %}<span class="badge" style="background:#F3F4F6;color:#6B7280">Отменена</span>
                         {% endif %}
                     </td>
                     <td>

@@ -57,6 +57,7 @@ STATUS_LABELS = {
     "shipped": "Отгружено",
     "delivered": "Доставлено",
     "rejected": "Отклонено",
+    "cancelled": "Отменена",
 }
 
 PAYMENT_METHODS = ["Наличные", "Безналичный расчёт", "Перевод", "Рассрочка", "Кредит"]
@@ -1336,3 +1337,135 @@ async def create_order_api(request: Request, db: Session = Depends(get_db)):
 @app.get("/api/factories")
 def api_factories(db: Session = Depends(get_db)):
     return [{"id": f.id, "name": f.name} for f in db.query(Factory).order_by(Factory.name).all()]
+
+
+# ── Удаление заявки ───────────────────────────────────────────────────────────
+
+@app.post("/orders/{order_id}/delete")
+def delete_order(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        return RedirectResponse("/orders?err=Заявка не найдена", 303)
+    # Удаляем файлы с диска
+    order_dir = os.path.join(UPLOADS_DIR, str(order_id))
+    if os.path.exists(order_dir):
+        shutil.rmtree(order_dir)
+    # Удаляем из БД
+    db.query(OrderAttachment).filter(OrderAttachment.order_id == order_id).delete()
+    db.query(OrderHistory.__class__).filter_by(order_id=order_id).delete() if False else None
+    log(db, user, f"Удалена заявка №{order_id} — {order.client_name}", request)
+    db.delete(order)
+    db.commit()
+    return RedirectResponse("/orders?msg=Заявка удалена", 303)
+
+
+# ── Удаление вложения ─────────────────────────────────────────────────────────
+
+@app.post("/orders/{order_id}/attachments/{att_id}/delete")
+def delete_attachment(order_id: int, att_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    att = db.query(OrderAttachment).filter(
+        OrderAttachment.id == att_id,
+        OrderAttachment.order_id == order_id
+    ).first()
+    if att:
+        path = os.path.join(UPLOADS_DIR, str(order_id), att.filename)
+        if os.path.exists(path):
+            os.remove(path)
+        db.delete(att)
+        db.commit()
+        log(db, user, f"Удалено вложение «{att.original_name}» из заявки №{order_id}", request)
+    return RedirectResponse(f"/orders/{order_id}?msg=Файл удалён", 303)
+
+
+# ── Отмена заявки ─────────────────────────────────────────────────────────────
+
+@app.post("/orders/{order_id}/cancel")
+def cancel_order(order_id: int, request: Request,
+                 reason: str = Form(""), db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        return RedirectResponse("/orders", 303)
+    old = order.status
+    order.status = "cancelled"
+    order.rejection_reason = reason.strip() or None
+    log_history(db, order.id, user.username, field="status", old_value=old, new_value="cancelled",
+                comment=reason.strip() or "Заявка отменена")
+    db.commit()
+    log(db, user, f"Заявка №{order_id} отменена", request)
+    return RedirectResponse(f"/orders/{order_id}?msg=Заявка отменена", 303)
+
+
+# ── Дублирование заявки ───────────────────────────────────────────────────────
+
+@app.post("/orders/{order_id}/duplicate")
+def duplicate_order(order_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return RedirectResponse("/login", 303)
+    src = db.query(Order).filter(Order.id == order_id).first()
+    if not src:
+        return RedirectResponse("/orders", 303)
+    new_order = Order(
+        client_name=src.client_name, client_phone=src.client_phone,
+        client_phone_name=src.client_phone_name, client_phone2=src.client_phone2,
+        client_phone2_name=src.client_phone2_name, client_whatsapp=src.client_whatsapp,
+        client_telegram=src.client_telegram, client_email=src.client_email,
+        factory_name=src.factory_name, factory_email=src.factory_email,
+        category=src.category, model=src.model, dimensions=src.dimensions,
+        material=src.material, color=src.color, configuration=src.configuration,
+        quantity=src.quantity, delivery_date=src.delivery_date, comments=src.comments,
+        contract_number=src.contract_number, shipment_date=src.shipment_date,
+        payment_method=src.payment_method, advance_payment=src.advance_payment,
+        balance_payment=src.balance_payment, order_amount=src.order_amount,
+        delivery_region=src.delivery_region, delivery_city=src.delivery_city,
+        delivery_street=src.delivery_street, delivery_house=src.delivery_house,
+        delivery_corpus=src.delivery_corpus, delivery_apartment=src.delivery_apartment,
+        delivery_address_full=src.delivery_address_full,
+        manager_id=user.id, manager_username=user.username,
+        status="new",
+    )
+    db.add(new_order); db.commit(); db.refresh(new_order)
+    log_history(db, new_order.id, user.username, comment=f"Создана как копия заявки №{order_id}")
+    db.commit()
+    log(db, user, f"Заявка №{new_order.id} создана как копия №{order_id}", request)
+    return RedirectResponse(f"/orders/{new_order.id}/edit?msg=Копия заявки создана", 303)
+
+
+# ── Напоминания о сроках ──────────────────────────────────────────────────────
+
+@app.get("/admin/reminders", response_class=HTMLResponse)
+def send_reminders(request: Request, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    today = datetime.utcnow().date()
+    threshold = str(today + timedelta(days=3))
+    orders = db.query(Order).filter(
+        Order.status.in_(["new", "sent_to_factory", "accepted"]),
+        Order.delivery_date <= threshold,
+        Order.delivery_date >= str(today)
+    ).all()
+    sent = 0
+    for order in orders:
+        if order.manager_id:
+            mgr = db.query(User).filter(User.id == order.manager_id).first()
+            if mgr and mgr.telegram_id:
+                send_telegram_message(mgr.telegram_id,
+                    f"⏰ *Напоминание: срок поставки*\n"
+                    f"Заявка №{order.id} — {order.client_name}\n"
+                    f"Модель: {order.model}\n"
+                    f"Срок: {order.delivery_date}\n"
+                    f"Статус: {STATUS_LABELS.get(order.status, order.status)}")
+                sent += 1
+    log(db, user, f"Отправлено {sent} напоминаний о сроках", request)
+    return RedirectResponse(f"/orders?msg=Отправлено напоминаний: {sent}", 303)

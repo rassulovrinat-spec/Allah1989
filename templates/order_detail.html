@@ -15,6 +15,7 @@
                 {% elif order.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
                 {% elif order.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
                 {% elif order.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
+                {% elif order.status == 'cancelled' %}<span class="badge" style="background:#F3F4F6;color:#6B7280">Отменена</span>
                 {% endif %}
             </div>
             <div class="page-subtitle">Создана {{ order.created_at | dt }}</div>
@@ -27,6 +28,19 @@
         <a href="/orders/{{ order.id }}/pdf" class="btn btn-outline btn-sm" target="_blank">
             <i class="bi bi-file-earmark-pdf"></i>PDF
         </a>
+        <form method="post" action="/orders/{{ order.id }}/duplicate" style="margin:0">
+            <button type="submit" class="btn btn-outline btn-sm" title="Создать копию заявки">
+                <i class="bi bi-copy"></i>Копия
+            </button>
+        </form>
+        {% if me.role == 'admin' %}
+        <form method="post" action="/orders/{{ order.id }}/delete" style="margin:0"
+              onsubmit="return confirm('Удалить заявку №{{ order.id }} безвозвратно?')">
+            <button type="submit" class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA">
+                <i class="bi bi-trash"></i>Удалить
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 
@@ -269,6 +283,12 @@
                         <a href="/orders/{{ order.id }}/download/{{ a.filename }}" class="btn btn-outline btn-sm">
                             <i class="bi bi-download"></i>
                         </a>
+                        <form method="post" action="/orders/{{ order.id }}/attachments/{{ a.id }}/delete" style="margin:0"
+                              onsubmit="return confirm('Удалить файл?')">
+                            <button type="submit" class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;padding:6px 10px">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
                     </div>
                     {% endfor %}
                 </div>
@@ -337,6 +357,23 @@
                     <button class="btn btn-danger btn-sm" style="width:100%"
                             onclick="return confirm('Отклонить заявку?')">
                         <i class="bi bi-x-circle"></i>Отклонить
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if order.status not in ('cancelled', 'delivered', 'rejected') %}
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-body">
+                <form method="post" action="/orders/{{ order.id }}/cancel">
+                    <div class="form-group" style="margin-bottom:8px">
+                        <label>Причина отмены (необязательно)</label>
+                        <input type="text" name="reason" placeholder="Укажите причину...">
+                    </div>
+                    <button class="btn btn-sm" style="width:100%;background:#F3F4F6;color:#374151;border:1px solid #D1D5DB"
+                            onclick="return confirm('Отменить заявку?')">
+                        <i class="bi bi-slash-circle"></i>Отменить заявку
                     </button>
                 </form>
             </div>

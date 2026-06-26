@@ -149,6 +149,7 @@ class OrderStatus:
     shipped = "shipped"
     delivered = "delivered"
     rejected = "rejected"
+    cancelled = "cancelled"
 
 
 class OrderHistory(Base):
