@@ -974,13 +974,42 @@ def my_stats(request: Request, db: Session = Depends(get_db)):
     counts = {s: sum(1 for o in all_orders if o.status == s) for s in STATUS_LABELS}
     recent = sorted(all_orders, key=lambda o: o.created_at or datetime.min, reverse=True)[:10]
 
+    # Данные по торговой точке менеджера
+    loc_key = user.location or ""
+    loc_name = LOCATIONS.get(loc_key, loc_key) if loc_key else ""
+    loc_orders_all = []
+    loc_month_revenue = 0
+    loc_total_revenue = 0
+    loc_month_count = 0
+    loc_counts = {s: 0 for s in STATUS_LABELS}
+    loc_recent = []
+
+    if loc_key:
+        loc_orders_all = db.query(Order).filter(
+            Order.deleted_at == None,
+            Order.location == loc_key
+        ).order_by(Order.created_at.desc()).all()
+        loc_month = [o for o in loc_orders_all
+                     if o.factory_confirmed_at and o.factory_confirmed_at >= month_start
+                     and o.status in ("accepted", "shipped", "delivered")]
+        loc_confirmed = [o for o in loc_orders_all if o.status in ("accepted", "shipped", "delivered")]
+        loc_month_revenue = sum(o.order_amount or 0 for o in loc_month)
+        loc_total_revenue = sum(o.order_amount or 0 for o in loc_confirmed)
+        loc_month_count = len(loc_month)
+        loc_counts = {s: sum(1 for o in loc_orders_all if o.status == s) for s in STATUS_LABELS}
+        loc_recent = loc_orders_all
+
     return templates.TemplateResponse("my_stats.html", ctx(request, db, user,
         month_revenue=month_revenue, total_revenue=total_revenue,
         month_commission=round(month_revenue * COMMISSION_RATE, 2),
         total_commission=round(total_revenue * COMMISSION_RATE, 2),
         month_count=len(month_orders), total_count=len(total_orders),
         monthly_data=monthly_data, counts=counts, recent=recent,
-        commission_rate=int(COMMISSION_RATE * 100)))
+        commission_rate=int(COMMISSION_RATE * 100),
+        loc_key=loc_key, loc_name=loc_name,
+        loc_orders=loc_recent, loc_month_revenue=loc_month_revenue,
+        loc_total_revenue=loc_total_revenue, loc_month_count=loc_month_count,
+        loc_counts=loc_counts))
 
 
 # ── factory confirmation (public) ─────────────────────────────────────────────

@@ -6,11 +6,11 @@
 <div class="page-header">
     <div>
         <div class="page-title">Мои показатели</div>
-        <div class="page-subtitle">Личная статистика — {{ me.display_name or me.username }}</div>
+        <div class="page-subtitle">{{ me.display_name or me.username }}{% if loc_name %} · {{ loc_name }}{% endif %}</div>
     </div>
 </div>
 
-<!-- Карточка комиссии — главный акцент -->
+<!-- Карточка комиссии — главный акцент (всегда личная) -->
 <div style="background:linear-gradient(135deg,#4F46E5 0%,#7C3AED 100%);border-radius:14px;padding:24px 28px;margin-bottom:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;box-shadow:0 8px 32px rgba(79,70,229,.35);overflow:hidden;position:relative">
     <div style="position:relative;z-index:1">
         <div style="font-size:11px;font-weight:700;opacity:.75;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">
@@ -28,100 +28,177 @@
     </div>
 </div>
 
-<!-- Карточки -->
-<div class="stats" style="margin-bottom:24px">
-    <div class="stat-card" style="border-color:var(--p)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <i class="bi bi-graph-up-arrow" style="color:var(--p);font-size:13px"></i>
-            <span class="stat-label" style="margin:0;font-weight:600">За всё время</span>
-        </div>
-        <div class="stat-value" style="font-size:22px;color:var(--p)">{{ total_revenue | rub }}</div>
-        <div class="stat-label">{{ total_count }} сделок · комиссия {{ total_commission | rub }}</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ counts['new'] }}</div>
-        <div class="stat-label">Новых заявок</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ counts['sent_to_factory'] }}</div>
-        <div class="stat-label">Ожидают ответа</div>
-    </div>
-    <div class="stat-card" style="border-color:#10B981">
-        <div class="stat-value" style="color:#059669">{{ counts.get('delivered', 0) }}</div>
-        <div class="stat-label">Доставлено</div>
-    </div>
+<!-- Вкладки -->
+<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">
+    {% if loc_key %}
+    <button class="mystats-tab active" data-tab="location"
+            style="padding:10px 20px;background:none;border:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--p);border-bottom:2px solid var(--p);margin-bottom:-2px;transition:all .2s">
+        <i class="bi bi-geo-alt-fill"></i> {{ loc_name }}
+    </button>
+    {% endif %}
+    <button class="mystats-tab {% if not loc_key %}active{% endif %}" data-tab="personal"
+            style="padding:10px 20px;background:none;border:none;cursor:pointer;font-size:14px;font-weight:600;color:{% if loc_key %}var(--text3){% else %}var(--p){% endif %};border-bottom:2px solid {% if loc_key %}transparent{% else %}var(--p){% endif %};margin-bottom:-2px;transition:all .2s">
+        <i class="bi bi-person-fill"></i> Мои заявки
+    </button>
 </div>
 
-<div class="row">
-    <!-- График -->
-    <div class="col col-8">
-        <div class="card" style="margin-bottom:20px">
-            <div class="card-header"><i class="bi bi-graph-up"></i>Выручка за 6 месяцев</div>
-            <div class="card-body">
-                <canvas id="myChart" height="100"></canvas>
+<!-- ════ ВКЛАДКА: ТОРГОВАЯ ТОЧКА ════ -->
+{% if loc_key %}
+<div id="tab-location">
+    <div class="stats" style="margin-bottom:20px">
+        <div class="stat-card" style="border-color:#F59E0B">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <i class="bi bi-calendar-month" style="color:#F59E0B;font-size:13px"></i>
+                <span class="stat-label" style="margin:0;color:#92400E;font-weight:600">Точка — этот месяц</span>
             </div>
+            <div class="stat-value" style="font-size:22px;color:#D97706">{{ loc_month_revenue | rub }}</div>
+            <div class="stat-label">{{ loc_month_count }} принятых сделок</div>
         </div>
-
-        <!-- Последние заявки -->
-        <div class="card">
-            <div class="card-header"><i class="bi bi-clock-history"></i>Последние 10 заявок</div>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Дата</th>
-                            <th>Клиент</th>
-                            <th>Модель</th>
-                            <th>Сумма</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for o in recent %}
-                        <tr onclick="location.href='/orders/{{ o.id }}'" style="cursor:pointer">
-                            <td class="text-muted text-sm">{{ o.id }}</td>
-                            <td class="text-sm text-muted">{{ o.created_at | dt }}</td>
-                            <td class="fw-600">{{ o.client_name }}</td>
-                            <td class="text-sm">{{ o.model }}</td>
-                            <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
-                            <td>
-                                {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
-                                {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">Отправлено</span>
-                                {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
-                                {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
-                                {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
-                                {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr><td colspan="6"><div class="empty"><i class="bi bi-inbox"></i><p>Заявок нет</p></div></td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="stat-card" style="border-color:var(--p)">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <i class="bi bi-graph-up-arrow" style="color:var(--p);font-size:13px"></i>
+                <span class="stat-label" style="margin:0;font-weight:600">Точка — за всё время</span>
             </div>
+            <div class="stat-value" style="font-size:22px;color:var(--p)">{{ loc_total_revenue | rub }}</div>
+            <div class="stat-label">{{ loc_orders | length }} заявок всего</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ loc_counts['new'] }}</div>
+            <div class="stat-label">Новых</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ loc_counts['sent_to_factory'] }}</div>
+            <div class="stat-label">На фабрике</div>
+        </div>
+        <div class="stat-card" style="border-color:#10B981">
+            <div class="stat-value" style="color:#059669">{{ loc_counts.get('delivered', 0) }}</div>
+            <div class="stat-label">Доставлено</div>
         </div>
     </div>
 
-    <!-- Правая: статусы -->
-    <div class="col col-4">
-        <div class="card">
-            <div class="card-header"><i class="bi bi-pie-chart"></i>Мои заявки по статусам</div>
-            <div class="card-body">
-                <canvas id="statusChart" height="180"></canvas>
-                <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-                    {% set status_colors = {'new': '#F59E0B', 'sent_to_factory': '#3B82F6', 'accepted': '#10B981', 'shipped': '#8B5CF6', 'delivered': '#059669', 'rejected': '#EF4444', 'cancelled': '#9CA3AF'} %}
-                    {% set status_names = {'new': 'Новые', 'sent_to_factory': 'Отправлено', 'accepted': 'Принято', 'shipped': 'Отгружено', 'delivered': 'Доставлено', 'rejected': 'Отклонено', 'cancelled': 'Отменена'} %}
-                    {% for s, cnt in counts.items() %}
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span style="display:flex;align-items:center;gap:6px;font-size:12px">
-                            <span style="width:10px;height:10px;border-radius:50%;background:{{ status_colors[s] }};display:inline-block"></span>
-                            {{ status_names[s] }}
-                        </span>
-                        <strong>{{ cnt }}</strong>
-                    </div>
+    <div class="card">
+        <div class="card-header"><i class="bi bi-list-task"></i>Все заявки торговой точки — {{ loc_name }}</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th><th>Дата</th><th>Клиент</th><th>Модель</th>
+                        <th>Менеджер</th><th>Сумма</th><th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in loc_orders %}
+                    <tr onclick="location.href='/orders/{{ o.id }}'" style="cursor:pointer">
+                        <td class="text-muted text-sm">{{ o.id }}</td>
+                        <td class="text-sm text-muted" style="white-space:nowrap">{{ o.created_at | dt }}</td>
+                        <td class="fw-600">{{ o.client_name }}</td>
+                        <td class="text-sm">{{ o.model }}</td>
+                        <td class="text-sm text-muted">{{ o.manager_username or '—' }}</td>
+                        <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
+                        <td>
+                            {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
+                            {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">На фабрике</span>
+                            {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
+                            {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
+                            {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
+                            {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
+                            {% else %}<span class="badge" style="background:#F3F4F6;color:#6B7280">Отменена</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7"><div class="empty"><i class="bi bi-inbox"></i><p>Заявок нет</p></div></td></tr>
                     {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ════ ВКЛАДКА: МОИ ЗАЯВКИ ════ -->
+<div id="tab-personal" {% if loc_key %}style="display:none"{% endif %}>
+    <div class="stats" style="margin-bottom:24px">
+        <div class="stat-card" style="border-color:var(--p)">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <i class="bi bi-graph-up-arrow" style="color:var(--p);font-size:13px"></i>
+                <span class="stat-label" style="margin:0;font-weight:600">За всё время</span>
+            </div>
+            <div class="stat-value" style="font-size:22px;color:var(--p)">{{ total_revenue | rub }}</div>
+            <div class="stat-label">{{ total_count }} сделок · комиссия {{ total_commission | rub }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ counts['new'] }}</div>
+            <div class="stat-label">Новых заявок</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ counts['sent_to_factory'] }}</div>
+            <div class="stat-label">Ожидают ответа</div>
+        </div>
+        <div class="stat-card" style="border-color:#10B981">
+            <div class="stat-value" style="color:#059669">{{ counts.get('delivered', 0) }}</div>
+            <div class="stat-label">Доставлено</div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col col-8">
+            <div class="card" style="margin-bottom:20px">
+                <div class="card-header"><i class="bi bi-graph-up"></i>Моя выручка за 6 месяцев</div>
+                <div class="card-body">
+                    <canvas id="myChart" height="100"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><i class="bi bi-clock-history"></i>Последние 10 моих заявок</div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>#</th><th>Дата</th><th>Клиент</th><th>Модель</th><th>Сумма</th><th>Статус</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for o in recent %}
+                            <tr onclick="location.href='/orders/{{ o.id }}'" style="cursor:pointer">
+                                <td class="text-muted text-sm">{{ o.id }}</td>
+                                <td class="text-sm text-muted">{{ o.created_at | dt }}</td>
+                                <td class="fw-600">{{ o.client_name }}</td>
+                                <td class="text-sm">{{ o.model }}</td>
+                                <td class="text-sm fw-600">{{ o.order_amount | rub if o.order_amount else '—' }}</td>
+                                <td>
+                                    {% if o.status == 'new' %}<span class="badge badge-new">Новая</span>
+                                    {% elif o.status == 'sent_to_factory' %}<span class="badge badge-sent">На фабрике</span>
+                                    {% elif o.status == 'accepted' %}<span class="badge badge-accepted">Принято</span>
+                                    {% elif o.status == 'shipped' %}<span class="badge badge-shipped">Отгружено</span>
+                                    {% elif o.status == 'delivered' %}<span class="badge badge-delivered">Доставлено</span>
+                                    {% elif o.status == 'rejected' %}<span class="badge badge-rejected">Отклонено</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6"><div class="empty"><i class="bi bi-inbox"></i><p>Заявок нет</p></div></td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col col-4">
+            <div class="card">
+                <div class="card-header"><i class="bi bi-pie-chart"></i>Мои заявки по статусам</div>
+                <div class="card-body">
+                    <canvas id="statusChart" height="180"></canvas>
+                    <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+                        {% set status_colors = {'new':'#F59E0B','sent_to_factory':'#3B82F6','accepted':'#10B981','shipped':'#8B5CF6','delivered':'#059669','rejected':'#EF4444','cancelled':'#9CA3AF'} %}
+                        {% set status_names  = {'new':'Новые','sent_to_factory':'На фабрике','accepted':'Принято','shipped':'Отгружено','delivered':'Доставлено','rejected':'Отклонено','cancelled':'Отменена'} %}
+                        {% for s, cnt in counts.items() %}
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <span style="display:flex;align-items:center;gap:6px;font-size:12px">
+                                <span style="width:10px;height:10px;border-radius:50%;background:{{ status_colors[s] }};display:inline-block"></span>
+                                {{ status_names[s] }}
+                            </span>
+                            <strong>{{ cnt }}</strong>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -130,43 +207,64 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const monthly = {{ monthly_data | tojson }};
-const accent = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#4F46E5';
+// Переключение вкладок
+document.querySelectorAll('.mystats-tab').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.mystats-tab').forEach(b => {
+            b.style.color = 'var(--text3)';
+            b.style.borderBottomColor = 'transparent';
+            b.classList.remove('active');
+        });
+        this.style.color = 'var(--p)';
+        this.style.borderBottomColor = 'var(--p)';
+        this.classList.add('active');
+        const tab = this.dataset.tab;
+        const loc = document.getElementById('tab-location');
+        const per = document.getElementById('tab-personal');
+        if (loc) loc.style.display = tab === 'location' ? '' : 'none';
+        if (per) per.style.display = tab === 'personal'  ? '' : 'none';
+        if (tab === 'personal' && !window._chartsBuilt) buildCharts();
+    });
+});
 
-const allZero = monthly.every(d => d.total === 0);
-if (allZero) {
-    const c = document.getElementById('myChart');
-    c.style.display = 'none';
-    c.insertAdjacentHTML('afterend', '<div class="empty" style="padding:40px 20px"><i class="bi bi-graph-up"></i><p>Здесь появится ваша статистика после первых заявок</p></div>');
-} else {
-    new Chart(document.getElementById('myChart'), {
-        type: 'bar',
+// Если нет вкладки локации — строим сразу
+window._chartsBuilt = false;
+{% if not loc_key %}
+buildCharts();
+window._chartsBuilt = true;
+{% endif %}
+
+function buildCharts() {
+    window._chartsBuilt = true;
+    const monthly = {{ monthly_data | tojson }};
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#4F46E5';
+    const allZero = monthly.every(d => d.total === 0);
+    if (allZero) {
+        const c = document.getElementById('myChart');
+        if (c) { c.style.display = 'none'; c.insertAdjacentHTML('afterend', '<div class="empty" style="padding:40px 20px"><i class="bi bi-graph-up"></i><p>Здесь появится ваша статистика после первых заявок</p></div>'); }
+    } else {
+        new Chart(document.getElementById('myChart'), {
+            type: 'bar',
+            data: {
+                labels: monthly.map(d => d.label),
+                datasets: [
+                    { label: 'Выручка ₽', data: monthly.map(d => d.total), backgroundColor: accent+'33', borderColor: accent, borderWidth:2, borderRadius:6 },
+                    { label: 'Комиссия ₽', data: monthly.map(d => d.commission), backgroundColor: '#10B98133', borderColor: '#10B981', borderWidth:2, borderRadius:6 }
+                ]
+            },
+            options: { responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true, ticks:{maxTicksLimit:6, callback: v => { if(v===0) return '0 ₽'; if(v>=1000000) return (v/1000000).toFixed(1)+'М ₽'; if(v>=1000) return (v/1000).toFixed(0)+'К ₽'; return v+' ₽'; }}}}}
+        });
+    }
+    const counts = {{ counts | tojson }};
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
         data: {
-            labels: monthly.map(d => d.label),
-            datasets: [
-                { label: 'Выручка ₽', data: monthly.map(d => d.total), backgroundColor: accent + '33', borderColor: accent, borderWidth: 2, borderRadius: 6 },
-                { label: 'Комиссия ₽', data: monthly.map(d => d.commission), backgroundColor: '#10B98133', borderColor: '#10B981', borderWidth: 2, borderRadius: 6 }
-            ]
+            labels: ['Новые','На фабрике','Принято','Отгружено','Доставлено','Отклонено','Отменена'],
+            datasets: [{ data: [counts.new||0, counts.sent_to_factory||0, counts.accepted||0, counts.shipped||0, counts.delivered||0, counts.rejected||0, counts.cancelled||0],
+                         backgroundColor: ['#F59E0B','#3B82F6','#10B981','#8B5CF6','#059669','#EF4444','#9CA3AF'], borderWidth:0 }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'top' } },
-            scales: { y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => { if(v===0) return '0 ₽'; if(v>=1000000) return (v/1000000).toFixed(1)+'М ₽'; if(v>=1000) return (v/1000).toFixed(0)+'К ₽'; return v+' ₽'; } } } }
-        }
+        options: { responsive:true, cutout:'65%', plugins:{legend:{display:false}} }
     });
 }
-
-const counts = {{ counts | tojson }};
-new Chart(document.getElementById('statusChart'), {
-    type: 'doughnut',
-    data: {
-        labels: ['Новые','Отправлено','Принято','Отгружено','Доставлено','Отклонено','Отменена'],
-        datasets: [{ data: [counts.new||0, counts.sent_to_factory||0, counts.accepted||0,
-                            counts.shipped||0, counts.delivered||0, counts.rejected||0, counts.cancelled||0],
-                     backgroundColor: ['#F59E0B','#3B82F6','#10B981','#8B5CF6','#059669','#EF4444','#9CA3AF'],
-                     borderWidth: 0 }]
-    },
-    options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
-});
 </script>
 {% endblock %}
