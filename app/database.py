@@ -48,6 +48,8 @@ def _migrate():
     add_col("users", "location", "TEXT")
     add_col("orders", "location", "TEXT")
     add_col("factories", "reply_email", "TEXT")
+    add_col("site_settings", "company_name", "TEXT DEFAULT 'prregina'")
+    add_col("site_settings", "commission_rate", "INTEGER DEFAULT 5")
 
     conn.commit()
     conn.close()
