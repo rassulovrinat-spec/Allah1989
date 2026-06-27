@@ -1375,6 +1375,17 @@ def activity_log(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("activity.html", ctx(request, db, user, logs=logs))
 
 
+@app.post("/activity/clear")
+def activity_clear(request: Request, db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    db.query(ActivityLog).delete()
+    db.commit()
+    log(db, user, "Журнал активности очищен", request)
+    return RedirectResponse("/activity", 303)
+
+
 # ── settings (admin) ──────────────────────────────────────────────────────────
 
 @app.get("/settings", response_class=HTMLResponse)

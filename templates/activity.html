@@ -6,8 +6,16 @@
 <div class="page-header">
     <div>
         <div class="page-title">Журнал активности</div>
-        <div class="page-subtitle">Последние 500 событий</div>
+        <div class="page-subtitle">{{ logs | length }} событий</div>
     </div>
+    {% if me.role == 'admin' %}
+    <form method="post" action="/activity/clear"
+          onsubmit="return confirm('Очистить весь журнал активности? Это действие необратимо.')">
+        <button type="submit" class="btn btn-outline btn-sm" style="color:#DC2626;border-color:#FECACA">
+            <i class="bi bi-trash3"></i>Очистить журнал
+        </button>
+    </form>
+    {% endif %}
 </div>
 
 <!-- Фильтр-табы -->

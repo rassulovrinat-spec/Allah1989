@@ -211,11 +211,16 @@
                 {% else %}
                 <tr>
                     <td colspan="12">
-                        <div class="empty">
-                            <i class="bi bi-inbox"></i>
-                            <p>Заявок не найдено</p>
-                            {% if not search and not current_status %}
-                            <a href="/orders/new" class="btn btn-primary btn-sm" style="margin-top:12px">
+                        <div class="empty" style="padding:60px 20px">
+                            {% if search or current_status %}
+                            <i class="bi bi-search" style="font-size:40px;color:var(--text3);display:block;margin-bottom:12px"></i>
+                            <p style="font-size:15px;font-weight:600;color:var(--text2)">Ничего не найдено</p>
+                            <p style="font-size:13px;color:var(--text3);margin-top:4px">Попробуйте изменить фильтры или поисковый запрос</p>
+                            {% else %}
+                            <i class="bi bi-clipboard-plus" style="font-size:48px;color:var(--p);opacity:.4;display:block;margin-bottom:16px"></i>
+                            <p style="font-size:16px;font-weight:700;color:var(--text)">Заявок пока нет</p>
+                            <p style="font-size:13px;color:var(--text3);margin-top:6px;margin-bottom:20px">Создайте первую заявку — она появится здесь</p>
+                            <a href="/orders/new" class="btn btn-primary">
                                 <i class="bi bi-plus-lg"></i>Создать первую заявку
                             </a>
                             {% endif %}

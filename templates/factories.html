@@ -10,6 +10,14 @@
     </div>
 </div>
 
+{% set has_test = factories | selectattr('email', 'containing', 'example.com') | list %}
+{% if has_test %}
+<div class="alert alert-info" style="margin-bottom:20px">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <strong>Обнаружены тестовые фабрики</strong> с email @example.com — замените их на реальные адреса, иначе письма не дойдут до фабрик.
+</div>
+{% endif %}
+
 <div class="row">
     <div class="col col-8">
         <div class="card">
