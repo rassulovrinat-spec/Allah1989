@@ -348,12 +348,12 @@
             <div class="card-body">
                 <div class="form-group" style="margin-bottom:0">
                     <select name="status" id="status-select" onchange="toggleRejection()">
-                        <option value="new"              {{ 'selected' if order.status == 'new' }}>🆕 Новая</option>
-                        <option value="sent_to_factory"  {{ 'selected' if order.status == 'sent_to_factory' }}>📨 Отправлено на фабрику</option>
-                        <option value="accepted"         {{ 'selected' if order.status == 'accepted' }}>✅ Принято фабрикой</option>
-                        <option value="shipped"          {{ 'selected' if order.status == 'shipped' }}>🚚 Отгружено</option>
-                        <option value="delivered"        {{ 'selected' if order.status == 'delivered' }}>🏠 Доставлено</option>
-                        <option value="rejected"         {{ 'selected' if order.status == 'rejected' }}>❌ Отклонено</option>
+                        <option value="new"              {{ 'selected' if order.status == 'new' }}>Новая</option>
+                        <option value="sent_to_factory"  {{ 'selected' if order.status == 'sent_to_factory' }}>Отправлено на фабрику</option>
+                        <option value="accepted"         {{ 'selected' if order.status == 'accepted' }}>Принято фабрикой</option>
+                        <option value="shipped"          {{ 'selected' if order.status == 'shipped' }}>Отгружено</option>
+                        <option value="delivered"        {{ 'selected' if order.status == 'delivered' }}>Доставлено</option>
+                        <option value="rejected"         {{ 'selected' if order.status == 'rejected' }}>Отклонено</option>
                     </select>
                 </div>
                 <div id="rejection-block" style="display:{{ 'block' if order.status == 'rejected' else 'none' }};margin-top:12px">
@@ -381,13 +381,13 @@
                 <div class="form-group">
                     <label>Аванс, ₽</label>
                     <input type="number" name="advance_payment" id="advance" step="0.01" min="0"
-                           value="{{ order.advance_payment if order and order.advance_payment else '' }}"
+                           value="{{ order.advance_payment if order and order.advance_payment is not none else '' }}"
                            placeholder="0" oninput="calcTotal()">
                 </div>
                 <div class="form-group">
                     <label>Остаток, ₽</label>
                     <input type="number" name="balance_payment" id="balance" step="0.01" min="0"
-                           value="{{ order.balance_payment if order and order.balance_payment else '' }}"
+                           value="{{ order.balance_payment if order and order.balance_payment is not none else '' }}"
                            placeholder="0" oninput="calcTotal()">
                 </div>
                 <div style="padding:12px;background:var(--p-light);border-radius:8px;border:1px solid var(--p)">

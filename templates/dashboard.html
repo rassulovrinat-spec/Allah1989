@@ -52,13 +52,25 @@
 
         <!-- Топ менеджеры -->
         <div class="card">
-            <div class="card-header"><i class="bi bi-trophy"></i>Менеджеры — итог за всё время</div>
+            <div class="card-header" style="justify-content:space-between">
+                <span><i class="bi bi-trophy"></i>Менеджеры</span>
+                <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px">
+                    <button id="mgr-btn-month" onclick="mgrToggle('month')"
+                            style="padding:4px 12px;border:none;cursor:pointer;font-family:inherit;font-size:12px;background:var(--p);color:white;font-weight:600">
+                        Этот месяц
+                    </button>
+                    <button id="mgr-btn-all" onclick="mgrToggle('all')"
+                            style="padding:4px 12px;border:none;cursor:pointer;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text2)">
+                        За всё время
+                    </button>
+                </div>
+            </div>
             <div class="table-wrap">
                 <table>
                     <thead>
                         <tr>
                             <th>Менеджер</th>
-                            <th>Заявок</th>
+                            <th id="mgr-th-orders">Заявок</th>
                             <th>Сумма продаж</th>
                             <th style="color:var(--p)">Комиссия {{ commission_rate }}%</th>
                         </tr>
@@ -67,9 +79,12 @@
                         {% for r in mgr_rows %}
                         <tr>
                             <td class="fw-600">{{ r.username }}</td>
-                            <td class="text-sm">{{ r.orders }}</td>
-                            <td>{{ r.total | rub }}</td>
-                            <td class="fw-600" style="color:var(--p)">{{ r.commission | rub }}</td>
+                            <td class="text-sm mgr-orders-all">{{ r.orders }}</td>
+                            <td class="text-sm mgr-orders-month" style="display:none">{{ r.month_orders }}</td>
+                            <td class="mgr-total-all">{{ r.total | rub }}</td>
+                            <td class="mgr-total-month" style="display:none">{{ r.month_total | rub }}</td>
+                            <td class="fw-600 mgr-comm-all" style="color:var(--p)">{{ r.commission | rub }}</td>
+                            <td class="fw-600 mgr-comm-month" style="display:none;color:var(--p)">{{ r.month_commission | rub }}</td>
                         </tr>
                         {% else %}
                         <tr>
@@ -82,6 +97,19 @@
                 </table>
             </div>
         </div>
+        <script>
+        function mgrToggle(mode) {
+            var isMonth = mode === 'month';
+            document.querySelectorAll('.mgr-orders-all,.mgr-total-all,.mgr-comm-all').forEach(function(el){ el.style.display = isMonth ? 'none' : ''; });
+            document.querySelectorAll('.mgr-orders-month,.mgr-total-month,.mgr-comm-month').forEach(function(el){ el.style.display = isMonth ? '' : 'none'; });
+            var btnM = document.getElementById('mgr-btn-month');
+            var btnA = document.getElementById('mgr-btn-all');
+            btnM.style.background = isMonth ? 'var(--p)' : 'var(--surface)';
+            btnM.style.color      = isMonth ? 'white' : 'var(--text2)';
+            btnA.style.background = isMonth ? 'var(--surface)' : 'var(--p)';
+            btnA.style.color      = isMonth ? 'var(--text2)' : 'white';
+        }
+        </script>
     </div>
 
     <!-- Правая колонка -->

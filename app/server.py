@@ -195,8 +195,9 @@ def root(request: Request):
 
 
 @app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+def login_page(request: Request, db: Session = Depends(get_db)):
+    s = get_settings(db)
+    return templates.TemplateResponse("login.html", {"request": request, "settings": s})
 
 
 @app.post("/login")
@@ -1299,13 +1300,20 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         })
     # Топ менеджеры
     mgr_rows = []
+    now_dt = datetime.utcnow()
+    month_start = datetime(now_dt.year, now_dt.month, 1)
     for (uname,) in db.query(Order.manager_username).filter(
             Order.deleted_at == None, Order.manager_username.isnot(None), Order.status == "accepted").distinct().all():
-        mgr_orders = db.query(Order).filter(
+        mgr_orders_all = db.query(Order).filter(
             Order.deleted_at == None, Order.manager_username == uname, Order.status == "accepted").all()
-        total = sum(o.order_amount or 0 for o in mgr_orders)
-        mgr_rows.append({"username": uname, "orders": len(mgr_orders),
-                         "total": round(total), "commission": round(total * COMMISSION_RATE)})
+        mgr_orders_month = [o for o in mgr_orders_all if o.created_at and o.created_at >= month_start]
+        total_all   = sum(o.order_amount or 0 for o in mgr_orders_all)
+        total_month = sum(o.order_amount or 0 for o in mgr_orders_month)
+        mgr_rows.append({
+            "username": uname,
+            "orders": len(mgr_orders_all), "total": round(total_all), "commission": round(total_all * COMMISSION_RATE),
+            "month_orders": len(mgr_orders_month), "month_total": round(total_month), "month_commission": round(total_month * COMMISSION_RATE),
+        })
     mgr_rows.sort(key=lambda x: x["total"], reverse=True)
     # Ожидают ответа > 3 дней
     overdue = db.query(Order).filter(
