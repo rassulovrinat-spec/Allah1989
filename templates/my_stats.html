@@ -10,22 +10,32 @@
     </div>
 </div>
 
+<!-- Карточка комиссии — главный акцент -->
+<div style="background:linear-gradient(135deg,#4F46E5 0%,#7C3AED 100%);border-radius:14px;padding:24px 28px;margin-bottom:20px;color:#fff;display:flex;align-items:center;justify-content:space-between;box-shadow:0 8px 32px rgba(79,70,229,.35);overflow:hidden;position:relative">
+    <div style="position:relative;z-index:1">
+        <div style="font-size:11px;font-weight:700;opacity:.75;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">
+            <i class="bi bi-trophy-fill" style="margin-right:5px"></i>Моя комиссия за этот месяц
+        </div>
+        <div style="font-size:44px;font-weight:900;letter-spacing:-.03em;line-height:1">
+            {{ month_commission | rub }}
+        </div>
+        <div style="font-size:13px;opacity:.85;margin-top:10px">
+            {{ commission_rate }}% от продаж &nbsp;·&nbsp; {{ month_count }} {% if month_count == 1 %}сделка{% elif month_count < 5 %}сделки{% else %}сделок{% endif %} &nbsp;·&nbsp; выручка {{ month_revenue | rub }}
+        </div>
+    </div>
+    <div style="position:absolute;right:-10px;bottom:-20px;opacity:.12;font-size:110px;line-height:1;pointer-events:none;user-select:none">
+        <i class="bi bi-cash-coin"></i>
+    </div>
+</div>
+
 <!-- Карточки -->
 <div class="stats" style="margin-bottom:24px">
-    <div class="stat-card" style="border-color:#F59E0B;background:linear-gradient(135deg,var(--surface),#FFFBEB)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <i class="bi bi-calendar-check" style="color:#F59E0B;font-size:13px"></i>
-            <span class="stat-label" style="margin:0;color:#92400E;font-weight:600">Этот месяц</span>
-        </div>
-        <div class="stat-value" style="font-size:20px;color:#D97706">{{ month_revenue | rub }}</div>
-        <div class="stat-label">{{ month_count }} сделок · комиссия {{ month_commission | rub }}</div>
-    </div>
     <div class="stat-card" style="border-color:var(--p)">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
             <i class="bi bi-graph-up-arrow" style="color:var(--p);font-size:13px"></i>
             <span class="stat-label" style="margin:0;font-weight:600">За всё время</span>
         </div>
-        <div class="stat-value" style="font-size:20px;color:var(--p)">{{ total_revenue | rub }}</div>
+        <div class="stat-value" style="font-size:22px;color:var(--p)">{{ total_revenue | rub }}</div>
         <div class="stat-label">{{ total_count }} сделок · комиссия {{ total_commission | rub }}</div>
     </div>
     <div class="stat-card">
@@ -35,6 +45,10 @@
     <div class="stat-card">
         <div class="stat-value">{{ counts['sent_to_factory'] }}</div>
         <div class="stat-label">Ожидают ответа</div>
+    </div>
+    <div class="stat-card" style="border-color:#10B981">
+        <div class="stat-value" style="color:#059669">{{ counts.get('delivered', 0) }}</div>
+        <div class="stat-label">Доставлено</div>
     </div>
 </div>
 

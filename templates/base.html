@@ -694,6 +694,9 @@
                 <span style="margin-left:auto;background:#EF4444;color:white;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">{{ trash_count }}</span>
                 {% endif %}
             </a>
+            <a href="/delivery-prices" class="nav-item {% if active_page == 'delivery_prices' %}active{% endif %}">
+                <i class="bi bi-truck"></i> Стоимость доставки
+            </a>
 
             {% if me.role == 'admin' %}
             <hr class="nav-divider">
@@ -715,9 +718,6 @@
             </a>
             <a href="/locations" class="nav-item {% if active_page == 'locations' %}active{% endif %}">
                 <i class="bi bi-geo-alt"></i> Торговые точки
-            </a>
-            <a href="/delivery-prices" class="nav-item {% if active_page == 'delivery_prices' %}active{% endif %}">
-                <i class="bi bi-truck"></i> Стоимость доставки
             </a>
 
             <hr class="nav-divider">
