@@ -102,15 +102,42 @@
                 <div class="row">
                     <div class="col form-group">
                         <label>Фабрика *</label>
-                        <select name="factory_id" required>
-                            <option value="">Выберите фабрику…</option>
-                            {% for f in factories %}
-                            <option value="{{ f.id }}"
-                                {{ 'selected' if order and order.factory_name == f.name else '' }}>
-                                {{ f.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                        <div style="position:relative">
+                            <input type="text" id="factory-search" autocomplete="off"
+                                   placeholder="Начните вводить название…"
+                                   style="width:100%;margin-bottom:4px"
+                                   oninput="filterFactory(this.value)">
+                            <select name="factory_id" id="factory-select" required size="1"
+                                    style="width:100%" onchange="onFactorySelect(this)">
+                                <option value="">— выберите фабрику —</option>
+                                {% for f in factories %}
+                                <option value="{{ f.id }}" data-name="{{ f.name | lower }}"
+                                    {{ 'selected' if order and order.factory_name == f.name else '' }}>
+                                    {{ f.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <script>
+                        (function(){
+                            var sel = document.getElementById('factory-select');
+                            var inp = document.getElementById('factory-search');
+                            var chosen = sel.options[sel.selectedIndex];
+                            if (chosen && chosen.value) inp.value = chosen.text;
+                        })();
+                        function filterFactory(q) {
+                            var sel = document.getElementById('factory-select');
+                            q = q.toLowerCase();
+                            Array.from(sel.options).forEach(function(o) {
+                                o.style.display = (!q || o.dataset.name && o.dataset.name.includes(q)) ? '' : 'none';
+                            });
+                            sel.size = q ? Math.min(6, Array.from(sel.options).filter(o=>o.style.display!=='none').length + 1) : 1;
+                        }
+                        function onFactorySelect(sel) {
+                            document.getElementById('factory-search').value = sel.options[sel.selectedIndex].text;
+                            sel.size = 1;
+                        }
+                        </script>
                     </div>
                     <div class="col form-group">
                         <label>Категория *</label>

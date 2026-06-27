@@ -70,6 +70,35 @@
                 </div>
             </div>
 
+            <!-- Компания -->
+            <div class="card" style="margin-bottom:16px">
+                <div class="card-header"><i class="bi bi-building"></i>Название компании</div>
+                <div class="card-body">
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>Отображается в шапке сайта и в заголовке браузера</label>
+                        <input type="text" name="company_name"
+                               value="{{ settings.company_name or 'prregina' }}"
+                               placeholder="prregina" maxlength="50">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Комиссия -->
+            <div class="card" style="margin-bottom:24px">
+                <div class="card-header"><i class="bi bi-percent"></i>Ставка комиссии менеджеров</div>
+                <div class="card-body">
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>Процент от суммы принятых заявок (текущая: {{ settings.commission_rate or 5 }}%)</label>
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <input type="number" name="commission_rate" min="1" max="50" step="1"
+                                   value="{{ settings.commission_rate or 5 }}"
+                                   style="width:120px">
+                            <span class="text-muted text-sm">% — используется в отчётах и «Моих показателях»</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-lg"></i>Сохранить настройки
             </button>

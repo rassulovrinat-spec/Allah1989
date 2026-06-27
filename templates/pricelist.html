@@ -110,11 +110,32 @@
                     </div>
                     <div class="form-group">
                         <label>Excel-файл (.xlsx)</label>
-                        <input type="file" name="file" accept=".xlsx,.xls,.pdf" required>
+                        <div id="drop-zone" style="border:2px dashed var(--border);border-radius:10px;padding:24px 16px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)"
+                             onclick="document.getElementById('file-input').click()"
+                             ondragover="event.preventDefault();this.style.borderColor='var(--p)';this.style.background='var(--p-light)'"
+                             ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--surface2)'"
+                             ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='var(--surface2)';handleFile(event.dataTransfer.files[0])">
+                            <i class="bi bi-cloud-upload" id="drop-icon" style="font-size:28px;color:var(--text3);display:block;margin-bottom:8px"></i>
+                            <div id="drop-label" style="font-size:13px;font-weight:600;color:var(--text2)">Перетащите файл сюда</div>
+                            <div style="font-size:11px;color:var(--text3);margin-top:4px">или нажмите для выбора · .xlsx, .xls, .pdf</div>
+                        </div>
+                        <input type="file" id="file-input" name="file" accept=".xlsx,.xls,.pdf" required style="display:none"
+                               onchange="handleFile(this.files[0])">
                     </div>
                     <button type="submit" class="btn btn-primary" style="width:100%">
                         <i class="bi bi-upload"></i>Загрузить
                     </button>
+                    <script>
+                    function handleFile(file) {
+                        if (!file) return;
+                        document.getElementById('file-input').files = (function(f){ var dt=new DataTransfer(); dt.items.add(f); return dt.files; })(file);
+                        document.getElementById('drop-icon').className = 'bi bi-file-earmark-check';
+                        document.getElementById('drop-icon').style.color = '#059669';
+                        document.getElementById('drop-label').textContent = file.name;
+                        document.getElementById('drop-label').style.color = '#059669';
+                        document.getElementById('drop-zone').style.borderColor = '#059669';
+                    }
+                    </script>
                 </form>
             </div>
         </div>

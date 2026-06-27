@@ -50,7 +50,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 templates.env.filters["dt"]   = lambda x: x.strftime("%d.%m.%Y %H:%M") if x else "—"
 templates.env.filters["date"] = lambda x: x.strftime("%d.%m.%Y") if x else "—"
-templates.env.filters["rub"]  = lambda x: f"{x:,.0f} ₽".replace(",", " ") if x else "—"
+templates.env.filters["rub"]  = lambda x: f"{x:,.0f} ₽".replace(",", " ") if x is not None else "—"
 
 def _working_days_since(dt):
     from datetime import date as _date
@@ -1116,7 +1116,7 @@ def delete_pricelist(batch_uuid: str, request: Request, db: Session = Depends(ge
 
 @app.get("/report", response_class=HTMLResponse)
 def report_page(request: Request, month: int = None, year: int = None,
-                db: Session = Depends(get_db)):
+                location: str = "", db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user:
         return RedirectResponse("/login", 303)
@@ -1129,11 +1129,11 @@ def report_page(request: Request, month: int = None, year: int = None,
         Order.status == OrderStatus.accepted,
         Order.order_amount.isnot(None),
     )
-    # Admin sees all; manager sees own
     if user.role != "admin":
         q = q.filter(Order.manager_id == user.id)
+    if location:
+        q = q.filter(Order.location == location)
 
-    # Filter by month/year using Python (SQLite has limited date funcs)
     all_orders = q.all()
     period_orders = [
         o for o in all_orders
@@ -1142,7 +1142,6 @@ def report_page(request: Request, month: int = None, year: int = None,
         and o.factory_confirmed_at.year == year
     ]
 
-    # Group by manager
     managers = {}
     for o in period_orders:
         key = o.manager_username or "—"
@@ -1157,16 +1156,66 @@ def report_page(request: Request, month: int = None, year: int = None,
         r["commission"] = round(r["commission"], 2)
         r["total"] = round(r["total"], 2)
 
-    # Month navigation list
     months = ["Январь","Февраль","Март","Апрель","Май","Июнь",
               "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
 
     return templates.TemplateResponse("report.html", ctx(request, db, user,
         rows=rows, month=month, year=year, months=months,
+        location=location,
         total_amount=sum(r["total"] for r in rows),
         total_commission=round(sum(r["commission"] for r in rows), 2),
         commission_rate=int(COMMISSION_RATE * 100),
         period_orders=period_orders))
+
+
+@app.get("/report/export")
+def report_export(request: Request, month: int = None, year: int = None,
+                  location: str = "", db: Session = Depends(get_db)):
+    import io, openpyxl
+    from fastapi.responses import StreamingResponse
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+
+    now = datetime.utcnow()
+    month = month or now.month
+    year  = year  or now.year
+    months_ru = ["Январь","Февраль","Март","Апрель","Май","Июнь",
+                 "Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"]
+
+    q = db.query(Order).filter(Order.status == OrderStatus.accepted, Order.order_amount.isnot(None))
+    if location:
+        q = q.filter(Order.location == location)
+    orders = [o for o in q.all()
+              if o.factory_confirmed_at
+              and o.factory_confirmed_at.month == month
+              and o.factory_confirmed_at.year == year]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"{months_ru[month-1]} {year}"
+    ws.append(["#", "Дата принятия", "Клиент", "Модель", "Менеджер", "Точка", "Сумма", f"Комиссия {int(COMMISSION_RATE*100)}%"])
+    for o in orders:
+        ws.append([
+            o.id,
+            o.factory_confirmed_at.strftime("%d.%m.%Y") if o.factory_confirmed_at else "",
+            o.client_name, o.model, o.manager_username or "",
+            LOCATIONS.get(o.location or "", o.location or ""),
+            o.order_amount or 0,
+            round((o.order_amount or 0) * COMMISSION_RATE, 2),
+        ])
+    ws.append([])
+    ws.append(["", "", "", "", "", "Итого:",
+               sum(o.order_amount or 0 for o in orders),
+               round(sum((o.order_amount or 0) * COMMISSION_RATE for o in orders), 2)])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"report_{months_ru[month-1]}_{year}.xlsx"
+    return StreamingResponse(buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 # ── dashboard (admin) ─────────────────────────────────────────────────────────
@@ -1428,14 +1477,20 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/settings")
 def save_settings(request: Request, theme: str = Form("light"),
-                  primary_color: str = Form("indigo"), db: Session = Depends(get_db)):
+                  primary_color: str = Form("indigo"),
+                  company_name: str = Form("prregina"),
+                  commission_rate: int = Form(5),
+                  db: Session = Depends(get_db)):
     user = get_user(request, db)
     if not user or user.role != "admin":
         return RedirectResponse("/orders", 303)
     s = get_settings(db)
-    s.theme = theme; s.primary_color = primary_color
+    s.theme = theme
+    s.primary_color = primary_color
+    s.company_name = company_name or "prregina"
+    s.commission_rate = max(1, min(50, commission_rate))
     db.commit()
-    log(db, user, f"Настройки: тема={theme}, цвет={primary_color}", request)
+    log(db, user, f"Настройки сохранены", request)
     return RedirectResponse("/settings?msg=Настройки сохранены", 303)
 
 

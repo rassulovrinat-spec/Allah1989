@@ -16,6 +16,21 @@
 
 <div class="row">
     <div class="col col-8">
+        <!-- Поиск и фильтр -->
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+            <div style="position:relative;flex:1;min-width:180px">
+                <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3)"></i>
+                <input type="text" id="user-search" placeholder="Поиск по имени или логину…"
+                       style="width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px"
+                       oninput="filterUsers()">
+            </div>
+            <select id="loc-filter" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px" onchange="filterUsers()">
+                <option value="">Все точки</option>
+                {% for key, name in locations.items() %}
+                <option value="{{ key }}">{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
         <div class="card">
             <div class="table-wrap">
                 <table>
@@ -31,7 +46,7 @@
                     </thead>
                     <tbody>
                         {% for u in users %}
-                        <tr>
+                        <tr class="user-row" data-name="{{ (u.display_name or u.username) | lower }}" data-login="{{ u.username | lower }}" data-loc="{{ u.location or '' }}">
                             <td>
                                 <div style="display:flex;align-items:center;gap:10px">
                                     <div style="width:32px;height:32px;border-radius:50%;background:var(--p-light);color:var(--p);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">
@@ -202,4 +217,15 @@
         </div>
     </div>
 </div>
+<script>
+function filterUsers() {
+    const q = document.getElementById('user-search').value.toLowerCase();
+    const loc = document.getElementById('loc-filter').value;
+    document.querySelectorAll('.user-row').forEach(row => {
+        const nameMatch = !q || row.dataset.name.includes(q) || row.dataset.login.includes(q);
+        const locMatch  = !loc || row.dataset.loc === loc;
+        row.style.display = nameMatch && locMatch ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}

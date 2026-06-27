@@ -144,6 +144,8 @@ class SiteSettings(Base):
     id = Column(Integer, primary_key=True)
     theme = Column(String(20), default="light")
     primary_color = Column(String(20), default="indigo")
+    company_name = Column(String(100), default="prregina")
+    commission_rate = Column(Integer, default=5)
 
 
 class OrderStatus:

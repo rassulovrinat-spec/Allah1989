@@ -8,9 +8,13 @@
         <div class="page-title">Отчёт по менеджерам</div>
         <div class="page-subtitle">Комиссия {{ commission_rate }}% от суммы принятых заявок</div>
     </div>
+    <a href="/report/export?month={{ month }}&year={{ year }}&location={{ location }}"
+       class="btn btn-outline btn-sm">
+        <i class="bi bi-file-earmark-excel"></i>Экспорт Excel
+    </a>
 </div>
 
-<!-- Month filter -->
+<!-- Фильтры -->
 <div class="card" style="margin-bottom:20px">
     <div class="card-body" style="padding:14px 20px">
         <form method="get" action="/report" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
@@ -26,6 +30,17 @@
                 <label>Год</label>
                 <input type="number" name="year" value="{{ year }}" min="2020" max="2030">
             </div>
+            {% if me.role == 'admin' %}
+            <div class="form-group" style="margin:0;flex:0 0 200px">
+                <label>Торговая точка</label>
+                <select name="location">
+                    <option value="">Все точки</option>
+                    {% for key, name in locations.items() %}
+                    <option value="{{ key }}" {{ 'selected' if location == key else '' }}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
             <button type="submit" class="btn btn-primary">Показать</button>
         </form>
     </div>

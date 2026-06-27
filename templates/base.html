@@ -681,6 +681,9 @@
             <div class="nav-section">Основное</div>
             <a href="/orders" class="nav-item {% if active_page == 'orders' %}active{% endif %}">
                 <i class="bi bi-list-task"></i> Заявки
+                {% if new_count > 0 %}
+                <span style="margin-left:auto;background:#F59E0B;color:white;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">{{ new_count }}</span>
+                {% endif %}
             </a>
             <a href="/orders/new" class="nav-item {% if active_page == 'order_new' %}active{% endif %}">
                 <i class="bi bi-plus-circle"></i> Новая заявка
