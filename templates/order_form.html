@@ -28,9 +28,31 @@
                 <!-- Имя -->
                 <div class="form-group">
                     <label>Имя клиента *</label>
-                    <input type="text" name="client_name" required
+                    <input type="text" name="client_name" id="client_name_input" required
                            value="{{ order.client_name if order else '' }}"
-                           placeholder="Иванов Иван Иванович">
+                           placeholder="Иванов Иван Иванович"
+                           autocomplete="off"
+                           list="clients-datalist">
+                    <datalist id="clients-datalist"></datalist>
+                    <script>
+                    (function(){
+                        var inp = document.getElementById('client_name_input');
+                        var dl  = document.getElementById('clients-datalist');
+                        var timer;
+                        inp.addEventListener('input', function() {
+                            clearTimeout(timer);
+                            var q = this.value.trim();
+                            if (q.length < 2) { dl.innerHTML = ''; return; }
+                            timer = setTimeout(function() {
+                                fetch('/api/clients?q=' + encodeURIComponent(q))
+                                    .then(r => r.json())
+                                    .then(names => {
+                                        dl.innerHTML = names.map(n => '<option value="' + n.replace(/"/g,'&quot;') + '">').join('');
+                                    });
+                            }, 200);
+                        });
+                    })();
+                    </script>
                 </div>
 
                 <!-- Телефон 1 + ФИО -->

@@ -625,12 +625,36 @@
             .mobile-topbar { display: flex; }
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); z-index: 150; }
-            .main { margin-left: 0; padding: 16px; padding-top: 68px; }
+            .main { margin-left: 0; padding: 14px 12px; padding-top: 64px; }
             .col-4, .col-8 { flex: 0 0 100%; }
-            .stats { grid-template-columns: repeat(2, 1fr); }
+            /* Stats: 2 колонки на мобильном */
+            .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .stat-value { font-size: 22px; }
+            /* Page header: стекируем */
             .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-            .filter-tabs { overflow-x: auto; flex-wrap: nowrap; }
-            .table-wrap { overflow-x: auto; }
+            .page-header > div:last-child { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+            .page-title { font-size: 18px; }
+            /* Фильтр-табы: горизонтальный скролл */
+            .filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+            .filter-tab { white-space: nowrap; flex-shrink: 0; }
+            /* Таблицы */
+            .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            /* Карточки */
+            .card { border-radius: 10px; }
+            .card-body { padding: 14px; }
+            /* Кнопки */
+            .btn { padding: 8px 12px; font-size: 12px; }
+            /* Форма: стрипы в колонку */
+            .row .col { flex: 0 0 100%; }
+            /* Прячем некоторые колонки таблицы на мобильном */
+            .hide-mobile { display: none; }
+            /* Формы */
+            .form-group input, .form-group select, .form-group textarea { font-size: 16px; }
+        }
+        @media (max-width: 480px) {
+            .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .stat-value { font-size: 18px; }
+            .main { padding: 10px 10px; padding-top: 62px; }
         }
     </style>
 </head>
@@ -640,7 +664,7 @@
     <button class="btn-hamburger" onclick="toggleSidebar()">
         <i class="bi bi-list" style="font-size:22px"></i>
     </button>
-    <span class="logo"><i class="bi bi-box-seam"></i> prregina</span>
+    <span class="logo"><i class="bi bi-box-seam"></i> {{ settings.company_name or 'prregina' }}</span>
 </div>
 <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
 

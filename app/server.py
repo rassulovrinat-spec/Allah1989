@@ -302,12 +302,46 @@ def orders_list(request: Request, status: str = None, search: str = None,
     if date_from: bqs_parts.append(f"date_from={date_from}")
     if date_to: bqs_parts.append(f"date_to={date_to}")
     base_qs = "&".join(bqs_parts)
+    # Предупреждения о дедлайнах для менеджера
+    deadline_alerts = []
+    if user.role != "admin":
+        active_statuses = ("new", "sent_to_factory", "accepted")
+        all_active = db.query(Order).filter(
+            Order.deleted_at == None,
+            Order.manager_username == user.username,
+            Order.status.in_(active_statuses)
+        ).all()
+        from datetime import date as _date
+        today = _date.today()
+        for o in all_active:
+            wd = _working_days_since(o.created_at)
+            overdue_date = o.delivery_date and o.delivery_date < str(today)
+            if wd >= 30 or overdue_date:
+                deadline_alerts.append({"order": o, "type": "danger", "wd": wd})
+            elif wd >= 25:
+                deadline_alerts.append({"order": o, "type": "warning", "wd": wd})
+
     return templates.TemplateResponse("orders.html", ctx(request, db, user,
         orders=orders, current_status=status, counts=counts,
         search=search or "", filter_manager=manager or "", filter_factory=factory or "",
         date_from=date_from or "", date_to=date_to or "",
         managers=managers, factories=factories,
-        page=page, total=total, page_size=PAGE_SIZE, base_qs=base_qs))
+        page=page, total=total, page_size=PAGE_SIZE, base_qs=base_qs,
+        deadline_alerts=deadline_alerts))
+
+
+@app.get("/api/clients")
+def api_clients(request: Request, q: str = "", db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user:
+        return []
+    query = db.query(Order.client_name).filter(Order.deleted_at == None, Order.client_name.isnot(None))
+    if user.role != "admin":
+        query = query.filter(Order.manager_username == user.username)
+    if q:
+        query = query.filter(Order.client_name.ilike(f"%{q}%"))
+    names = sorted(set(r[0] for r in query.distinct().limit(20).all() if r[0]))
+    return names
 
 
 @app.get("/orders/export")

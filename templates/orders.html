@@ -24,6 +24,35 @@
     </div>
 </div>
 
+<!-- Предупреждения о дедлайнах -->
+{% if deadline_alerts %}
+<div style="margin-bottom:16px">
+    {% for alert in deadline_alerts %}
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;margin-bottom:8px;
+                {% if alert.type == 'danger' %}background:#FEF2F2;border:1px solid #FECACA;{% else %}background:#FFFBEB;border:1px solid #FDE68A;{% endif %}">
+        <i class="bi bi-{% if alert.type == 'danger' %}exclamation-triangle-fill{% else %}clock-history{% endif %}"
+           style="font-size:18px;flex-shrink:0;{% if alert.type == 'danger' %}color:#DC2626{% else %}color:#D97706{% endif %}"></i>
+        <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;{% if alert.type == 'danger' %}color:#991B1B{% else %}color:#92400E{% endif %}">
+                {% if alert.type == 'danger' %}
+                    Срок нарушен — заявка №{{ alert.order.id }}, {{ alert.order.client_name }}
+                {% else %}
+                    До нарушения срока осталось {{ 30 - alert.wd }} раб. дн. — №{{ alert.order.id }}, {{ alert.order.client_name }}
+                {% endif %}
+            </div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">
+                {{ alert.order.model }} · {{ alert.order.factory_name }} · прошло {{ alert.wd }} раб. дней
+            </div>
+        </div>
+        <a href="/orders/{{ alert.order.id }}" class="btn btn-sm"
+           style="{% if alert.type == 'danger' %}background:#FEE2E2;color:#991B1B;border:1px solid #FECACA{% else %}background:#FEF3C7;color:#92400E;border:1px solid #FDE68A{% endif %}">
+            Открыть
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <!-- Stats -->
 <div class="stats">
     <a href="/orders?status=new" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'new' %}#F59E0B{% else %}var(--border){% endif %}">
