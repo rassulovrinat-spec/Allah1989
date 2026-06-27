@@ -138,6 +138,7 @@ def ctx(request: Request, db: Session, user: User, **extra):
             "primary_color": s.primary_color, "status_labels": STATUS_LABELS,
             "trash_count": trash_count, "new_count": new_count,
             "locations": LOCATIONS, "selected_location": sel_loc,
+            "settings": s,
             "now_ts": time.time(), "today_str": date.today().isoformat(), **extra}
 
 
