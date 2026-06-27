@@ -1365,6 +1365,23 @@ def add_factory(request: Request, name: str = Form(...), email: str = Form(...),
     return RedirectResponse("/factories?msg=Фабрика добавлена", 303)
 
 
+@app.post("/factories/{factory_id}/edit")
+def edit_factory(factory_id: int, request: Request,
+                 name: str = Form(...), email: str = Form(...),
+                 reply_email: str = Form(""), db: Session = Depends(get_db)):
+    user = get_user(request, db)
+    if not user or user.role != "admin":
+        return RedirectResponse("/orders", 303)
+    f = db.query(Factory).filter(Factory.id == factory_id).first()
+    if f:
+        f.name = name.strip()
+        f.email = email.strip()
+        f.reply_email = reply_email.strip() or None
+        db.commit()
+        log(db, user, f"Фабрика №{factory_id} обновлена: «{f.name}»", request)
+    return RedirectResponse("/factories?msg=Фабрика обновлена", 303)
+
+
 @app.post("/factories/{factory_id}/delete")
 def delete_factory(factory_id: int, request: Request, db: Session = Depends(get_db)):
     user = get_user(request, db)

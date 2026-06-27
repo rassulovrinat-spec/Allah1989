@@ -18,12 +18,20 @@
     {% endif %}
 </div>
 
-<!-- Фильтр-табы -->
-<div class="filter-tabs" style="margin-bottom:12px">
-    <a href="#" class="filter-tab active" data-filter="all">Все</a>
-    <a href="#" class="filter-tab" data-filter="login">Входы в систему</a>
-    <a href="#" class="filter-tab" data-filter="order">Заявки</a>
-    <a href="#" class="filter-tab" data-filter="other">Прочее</a>
+<!-- Поиск + фильтр-табы -->
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:200px">
+        <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3)"></i>
+        <input type="text" id="act-search" placeholder="Поиск по пользователю или действию…"
+               style="width:100%;padding:8px 12px 8px 32px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px"
+               oninput="filterActivity()">
+    </div>
+    <div class="filter-tabs" style="margin-bottom:0;flex-shrink:0">
+        <a href="#" class="filter-tab active" data-filter="all">Все</a>
+        <a href="#" class="filter-tab" data-filter="login">Входы</a>
+        <a href="#" class="filter-tab" data-filter="order">Заявки</a>
+        <a href="#" class="filter-tab" data-filter="other">Прочее</a>
+    </div>
 </div>
 
 <div class="card">
@@ -41,7 +49,7 @@
             <tbody id="activity-tbody">
                 {% for entry in logs %}
                 {% set cat = 'login' if 'Вход' in entry.action or 'Выход' in entry.action else ('order' if 'заявк' in entry.action.lower() else 'other') %}
-                <tr data-cat="{{ cat }}">
+                <tr data-cat="{{ cat }}" data-user="{{ entry.username | lower }}" data-action="{{ entry.action | lower }}">
                     <td class="text-sm text-muted" style="white-space:nowrap">{{ entry.created_at | dt }}</td>
                     <td>
                         <div style="display:flex;align-items:center;gap:8px">
@@ -91,15 +99,22 @@
 </div>
 
 <script>
-document.querySelectorAll('.filter-tab[data-filter]').forEach(tab => {
+var _actCat = 'all';
+function filterActivity() {
+    var q = (document.getElementById('act-search').value || '').toLowerCase();
+    document.querySelectorAll('#activity-tbody tr[data-cat]').forEach(function(row) {
+        var catOk  = _actCat === 'all' || row.dataset.cat === _actCat;
+        var textOk = !q || row.dataset.user.includes(q) || row.dataset.action.includes(q);
+        row.style.display = catOk && textOk ? '' : 'none';
+    });
+}
+document.querySelectorAll('.filter-tab[data-filter]').forEach(function(tab) {
     tab.addEventListener('click', function(e) {
         e.preventDefault();
-        document.querySelectorAll('.filter-tab[data-filter]').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.filter-tab[data-filter]').forEach(function(t){ t.classList.remove('active'); });
         this.classList.add('active');
-        const f = this.dataset.filter;
-        document.querySelectorAll('#activity-tbody tr[data-cat]').forEach(row => {
-            row.style.display = (f === 'all' || row.dataset.cat === f) ? '' : 'none';
-        });
+        _actCat = this.dataset.filter;
+        filterActivity();
     });
 });
 </script>

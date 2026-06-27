@@ -75,6 +75,10 @@
         <div class="stat-value" style="color:#DC2626">{{ counts['rejected'] }}</div>
         <div class="stat-label">Отклонено</div>
     </a>
+    <a href="/orders?status=delivered" class="stat-card" style="text-decoration:none;cursor:pointer;border-color:{% if current_status == 'delivered' %}#059669{% else %}var(--border){% endif %}">
+        <div class="stat-value" style="color:#059669">{{ counts['delivered'] }}</div>
+        <div class="stat-label">Доставлено</div>
+    </a>
 </div>
 
 <!-- Search + Filters -->
